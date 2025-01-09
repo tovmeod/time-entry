@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>טופס נוכחות שבועי</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        .time-cell { display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .time-input { width: 60px; }
+        .v-button { 
+            padding: 2px 8px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .v-button:hover { background: #45a049; }
+        .v-button-all {
+            background: #2196F3;
+        }
+        .v-button-all:hover { background: #1976D2; }
+        .name-cell {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+        }
+        .class-selector {
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+        .class-selector label {
+            margin-right: 20px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@4.1.0/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hebcal@2.3.2/client/hebcal.noloc.min.js"></script>
+</head>
+<body>
+    <h1>טופס נוכחות שבועי</h1>
+    <div style="margin-bottom: 20px;">
+        <label for="monthSelect">בחר חודש:</label>
+        <select id="monthSelect" onchange="updateAttendanceTable(); createStudentRows()"></select>
+        <label for="yearSelect">בחר שנה:</label>
+        <select id="yearSelect" onchange="updateAttendanceTable(); createStudentRows()"></select>
+    </div>
+    <div class="class-selector">
+        <label>
+            <input type="radio" name="classTime" value="first" checked onchange="updateClassTime()">
+            כיתה ראשונה (19:30 - 21:00)
+        </label>
+        <label>
+            <input type="radio" name="classTime" value="second" onchange="updateClassTime()">
+            כיתה שנייה (21:00 - 22:30)
+        </label>
+    </div>
+    <div style="margin-bottom: 20px;">
+        <textarea id="studentNames" rows="4" style="width: 100%; margin-bottom: 10px;" 
+            placeholder="הדבק כאן את שמות התלמידים, אחד בכל שורה" 
+            oninput="updateAttendanceTable();"></textarea>
+    </div>
+    <div id="attendanceContainer"></div>
+    <table id="summaryTable">
+        <thead>
+        <tr>
+            <th>שם תלמיד</th>
+            <th>לתשלום</th>
+            <th>סה"כ נוכחות</th>
+        </tr></thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        
+        function populateDateSelectors() {
+            const monthSelect = document.getElementById('monthSelect');
+            const yearSelect = document.getElementById('yearSelect');
+            const currentDate = new Date();
+            const previousMonth = (currentDate.getMonth() - 1 + 12) % 12; // Default to previous month
+            const currentYear = currentDate.getFullYear();
+
+            // Populate month dropdown
+            for (let i = 0; i < 12; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = new Date(0, i).toLocaleString('he-IL', { month: 'long' });
+                monthSelect.appendChild(option);
+            }
+            monthSelect.selectedIndex = previousMonth;
+
+            // Populate year dropdown
+            for (let i = currentYear - 5; i <= currentYear + 5; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i;
+                yearSelect.appendChild(option);
+            }
+            yearSelect.value = currentYear;
+            updateAttendanceTable(); // Call to set up the table
+        }
+
+        let working_days = 0;
+
+        function updateAttendanceTable() {
+            const month = parseInt(document.getElementById('monthSelect').value);
+            const year = parseInt(document.getElementById('yearSelect').value);
+            const startOfMonth = new Date(year, month, 1);
+            const firstDay = startOfMonth.getDay(); // Get the day of the week (0 = Sunday, 1 = Monday, etc.)
+            const endOfMonth = new Date(year, month + 1, 0);
+            const daysInMonth = endOfMonth.getDate(); // Get days in month
+            const weeks = Math.ceil((daysInMonth + firstDay) / 7); // Calculate number of weeks considering the first day
+            const container = document.getElementById('attendanceContainer');
+            container.innerHTML = ''; // Clear existing tables
+            
+            let currentDayOfMonth = 1;
+            working_days = 0;
+            // Create tables for each relevant week
+            for (let week = 0; week < weeks; week++) {
+                const table = document.createElement('table');
+                const weekHeader = document.createElement('div');
+                weekHeader.style.fontWeight = 'bold';
+                weekHeader.style.marginBottom = '10px';
+
+                const hebrewDate = Hebcal.HDate(new Date(year, month, currentDayOfMonth)).getSedra('h');
+                weekHeader.innerText = `שבוע ${week + 1} - ${hebrewDate}`;
+                
+                const header = table.createTHead();
+                const headerRow = header.insertRow();
+                const daysOfWeek = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי'];
+                headerRow.innerHTML = `<th>שם תלמיד</th>`;
+
+                let hasNonEmptyHeader = false;
+
+                for (let i = 0; i < daysOfWeek.length; i++) {
+                    if ((week === 0 && i < firstDay) || (currentDayOfMonth > daysInMonth)) {
+                        headerRow.innerHTML += `<th colspan="2"> </th>`;
+                    } else {
+                        headerRow.innerHTML += `<th colspan="2">${daysOfWeek[i]} (${currentDayOfMonth})</th>`;
+                        currentDayOfMonth++;
+                        hasNonEmptyHeader = true;
+                        working_days++;
+                    }
+                    
+                }
+                currentDayOfMonth+=2;
+                // Adjust currentDayOfMonth for remaining empty cells if needed
+                if (currentDayOfMonth < daysInMonth + 1) {
+                    headerRow.innerHTML += `<th colspan="2"> </th>`;
+                }
+                
+                const tbody = table.createTBody(); // Create tbody for the table
+
+                if (hasNonEmptyHeader) {
+                    container.appendChild(weekHeader);
+                    container.appendChild(table);
+                }
+            }
+        }
+        
+        // Call this function on page load to populate the selectors
+        window.onload = function() {
+            populateDateSelectors();
+            const savedNames = localStorage.getItem('studentNames');
+            if (savedNames) {
+                document.getElementById('studentNames').value = savedNames;
+                createStudentRows();
+            }
+        };
+
+        function createStudentRows() {
+            const namesText = document.getElementById('studentNames').value;
+            const names = namesText.split('\n').filter(name => name.trim());
+            
+            const tables = document.querySelectorAll('#attendanceContainer table');
+            tables.forEach(table => {
+                // Clear existing rows
+                const tbody = table.tBodies[0]; // Reference the existing tbody
+                tbody.innerHTML = ''; // Clear existing rows
+                
+                const headerCells = tbody.parentElement.getElementsByTagName('th');
+
+                names.forEach(name => {
+                    const row = tbody.insertRow();
+                    for (let i = 0; i < 11; i++) {
+                        const cell = row.insertCell(i);
+                        // Check if the header cell is empty before adding inner HTML
+                            if (i === 0) {
+                                cell.innerHTML = `
+                                    <div class="name-cell">
+                                        <span>${name.trim()}</span>
+                                        <button class="v-button v-button-all" onclick="fillAllTimes(this)">V</button>
+                                    </div>`;
+                            } else {
+                                const headerIndex = Math.floor((i - 1) / 2) + 1;
+                                if (headerCells[headerIndex].innerHTML.trim() !== "") {
+                                    cell.innerHTML = `
+                                        <div class="time-cell">
+                                            <input type="text" class="time-input" placeholder="HH:MM" maxlength="5" oninput="moveToNextInput(event)">
+                                            <button class="v-button" onclick="fillStandardTime(this, ${Math.floor((i + 1) / 2)}, ${i % 2 === 1 ? 'true' : 'false'})">V</button>
+                                        </div>`;
+                                }
+                            }
+                        }
+                    // Add a cell for total attendance time
+                    const totalCell = row.insertCell(11); // Assuming 11 is the index for the total attendance cell
+                    totalCell.innerHTML = `<span class="total-attendance">0:00</span>`; // Initial total time
+                });
+            });
+            const summarytbody = document.getElementById('summaryTable').tBodies[0];
+            summarytbody.innerHTML = '';
+            names.forEach(name => {
+                const row = summarytbody.insertRow();
+                const cell0 = row.insertCell(0);
+                cell0.innerHTML = `<div class="name-cell">
+                                        <span>${name.trim()}</span>
+                                  </div>`;
+                const cell1 = row.insertCell(1);
+                cell1.innerHTML = `<span class="total-payment">0.00</span>`;
+                const cell2 = row.insertCell(2);
+                cell2.innerHTML = `<span class="total-attendance">0:00</span>`;
+            });
+            // Save student names to local storage
+            localStorage.setItem('studentNames', namesText);
+        }
+
+        function updateClassTime() {
+            // This function will be called when the class time radio buttons change
+            // It doesn't need to do anything actively, as the fillStandardTime function
+            // will check the current selection when needed
+        }
+
+        function fillStandardTime(button, dayIndex, isEntrance) {
+            const isFirstClass = document.querySelector('input[name="classTime"][value="first"]').checked;
+            let time;
+            
+            if (isFirstClass) {
+                time = isEntrance ? '19:30' : '21:00';
+            } else {
+                time = isEntrance ? '21:00' : '22:30';
+            }
+            
+            const input = button.previousElementSibling;
+            input.value = time;
+            
+            // Move to next input after filling
+            const inputs = Array.from(document.querySelectorAll('.time-input'));
+            const currentIndex = inputs.indexOf(input);
+            if (currentIndex < inputs.length - 1) {
+                inputs[currentIndex + 1].focus();
+            }
+            calcAttendance(button.parentElement.parentElement.parentElement);
+        }
+
+        function fillAllTimes(button) {
+            const row = button.closest('tr');
+            const isFirstClass = document.querySelector('input[name="classTime"][value="first"]').checked;
+            const inTime = isFirstClass ? '19:30' : '21:00';
+            const outTime = isFirstClass ? '21:00' : '22:30';
+            
+            const inputs = row.querySelectorAll('.time-input');
+            inputs.forEach((input, index) => {
+                input.value = index % 2 === 0 ? inTime : outTime;
+            });
+            
+            // Focus the first input of the next row if exists
+            const nextRow = row.nextElementSibling;
+            if (nextRow) {
+                const firstInput = nextRow.querySelector('.time-input');
+                if (firstInput) firstInput.focus();
+            }
+            calcAttendance(button.parentElement.parentElement.parentElement);
+        }
+
+        function moveToNextInput(event) {
+            const input = event.target;
+            
+            // Only allow numbers
+            input.value = input.value.replace(/[^0-9]/g, '');
+            
+            // Format the input as HH:MM
+            if (input.value.length >= 4) {
+                input.value = input.value.slice(0, 2) + ':' + input.value.slice(2, 4);
+            }
+            
+            // Move to next input when 5 characters are entered (HH:MM)
+            if (input.value.length === 5) {
+                const inputs = Array.from(document.querySelectorAll('.time-input'));
+                const currentIndex = inputs.indexOf(input);
+                if (currentIndex < inputs.length - 1) {
+                    inputs[currentIndex + 1].focus();
+                }
+                calcAttendance(input.parentElement.parentElement.parentElement);
+            }
+        }
+
+        function calcAttendance(row) {
+            // loop through each day of the week
+            let totalAttendanceTime = 0;
+            for (let i = 1; i < 11; i += 2) {
+                if (!row.cells[i].querySelector('.time-input')) {
+                    continue;
+                }
+                const entranceTime = row.cells[i].querySelector('.time-input').value;
+                const leaveTime = row.cells[i + 1].querySelector('.time-input').value;
+                const [ehours, eminutes] = entranceTime.split(':').map(Number);
+                const etimeInMinutes = (ehours || 0) * 60 + (eminutes || 0);
+                const [lhours, lminutes] = leaveTime.split(':').map(Number);
+                const ltimeInMinutes = (lhours || 0) * 60 + (lminutes || 0);
+            
+                totalAttendanceTime += ltimeInMinutes - etimeInMinutes;
+            }
+             // Convert total attendance time back to HH:MM format
+            const totalHours = Math.floor(totalAttendanceTime / 60);
+            const totalMinutes = totalAttendanceTime % 60;
+            const formattedTime = `${totalHours}:${totalMinutes < 10 ? '0' : ''}${totalMinutes}`;
+
+            // Update the total attendance cell
+            const totalCell = row.querySelector('.total-attendance');
+            totalCell.innerText = formattedTime;
+
+            const name = row.cells[0].querySelector('.name-cell span').textContent;
+            updateSummaryTable(name);
+        }
+
+        function getRowForName(table, name) {
+            const rows = table.getElementsByTagName('tr'); // Get all rows in the current table
+
+            // Iterate through each row to find the student
+            for (let row of rows) {
+                // Ensure the row has cells
+                if (row.cells.length > 0) {
+                    const nameCell = row.cells[0].querySelector('.name-cell span');
+                    if (!nameCell) {
+                        continue;
+                    }
+                    const studentName = nameCell.innerText; // Get the student's name
+
+                    // Check if the current row corresponds to the specified student name
+                    if (studentName === name) {
+                        return row;
+                    }
+                }   
+            }
+        }
+
+        function updateSummaryTable(name) {
+            let totalAttendanceTime = 0;
+            const tables = document.querySelectorAll('#attendanceContainer table');
+            tables.forEach(table => {
+                const row = getRowForName(table, name);
+                if (row) {
+                    const totalTime = row.querySelector('.total-attendance').innerText;
+                    const [hours, minutes] = totalTime.split(':').map(Number);
+                    const timeInMinutes = (hours || 0) * 60 + (minutes || 0);
+                    totalAttendanceTime += timeInMinutes;
+                }
+            });
+            // const summaryRow = document.querySelector(`#summaryTable tr[name="${name}"]`);
+            const summarytbody = document.getElementById('summaryTable').tBodies[0];
+            const summaryRow = getRowForName(summaryTable, name);
+
+            if (summaryRow) {
+                const totalHours = Math.floor(totalAttendanceTime / 60);
+                const totalMinutes = totalAttendanceTime % 60;
+                const formattedTime = `${totalHours}:${totalMinutes < 10 ? '0' : ''}${totalMinutes}`;
+                summaryRow.cells[2].querySelector('.total-attendance').innerText = formattedTime;
+            }
+            const working_minutes = working_days * 90; // 90 minutes per day
+            let payment;
+            if (totalAttendanceTime >= working_minutes) {
+                payment = 600;
+            } else {
+                payment = totalAttendanceTime * (600 / working_minutes);
+            }
+            summaryRow.cells[1].querySelector('.total-payment').innerText = payment.toFixed(2);
+        }
+    </script>
+</body>
+</html>
