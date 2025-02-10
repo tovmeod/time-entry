@@ -10,7 +10,7 @@
         th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
         .time-cell { display: flex; align-items: center; justify-content: center; gap: 5px; }
         .time-input { width: 60px; }
-        .v-button { 
+        .v-button {
             padding: 2px 8px;
             background: #4CAF50;
             color: white;
@@ -38,6 +38,27 @@
         .class-selector label {
             margin-right: 20px;
         }
+        .week-header {
+            cursor: pointer;
+            background-color: #f0f0f0;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .week-header:hover {
+            background-color: #e0e0e0;
+        }
+        .week-table.collapsed {
+            display: none;
+        }
+        .toggle-icon {
+            transition: transform 0.3s ease;
+        }
+        .collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/date-fns@4.1.0/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hebcal@2.3.2/client/hebcal.noloc.min.js"></script>
@@ -61,11 +82,11 @@
         </label>
     </div>
     <div style="margin-bottom: 20px;">
-        <textarea id="studentNames" rows="4" style="width: 100%; margin-bottom: 10px;" 
-            placeholder="הדבק כאן את שמות התלמידים, אחד בכל שורה" 
+        <textarea id="studentNames" rows="4" style="width: 100%; margin-bottom: 10px;"
+            placeholder="הדבק כאן את שמות התלמידים, אחד בכל שורה"
             oninput="updateAttendanceTable();"></textarea>
     </div>
-    <div id="attendanceContainer"></div>
+    <div id="weeks-container"></div>
     <table id="summaryTable">
         <thead>
         <tr>
@@ -77,7 +98,8 @@
     </table>
 
     <script>
-        
+        let working_days = 0;
+
         function populateDateSelectors() {
             const monthSelect = document.getElementById('monthSelect');
             const yearSelect = document.getElementById('yearSelect');
@@ -105,8 +127,6 @@
             updateAttendanceTable(); // Call to set up the table
         }
 
-        let working_days = 0;
-
         function updateAttendanceTable() {
             const month = parseInt(document.getElementById('monthSelect').value);
             const year = parseInt(document.getElementById('yearSelect').value);
@@ -117,53 +137,20 @@
             const weeks = Math.ceil((daysInMonth + firstDay) / 7); // Calculate number of weeks considering the first day
             const container = document.getElementById('attendanceContainer');
             container.innerHTML = ''; // Clear existing tables
-            
+
             let currentDayOfMonth = 1;
             working_days = 0;
             // Create tables for each relevant week
             for (let week = 0; week < weeks; week++) {
-                const table = document.createElement('table');
-                const weekHeader = document.createElement('div');
-                weekHeader.style.fontWeight = 'bold';
-                weekHeader.style.marginBottom = '10px';
-
-                const hebrewDate = Hebcal.HDate(new Date(year, month, currentDayOfMonth)).getSedra('h');
-                weekHeader.innerText = `שבוע ${week + 1} - ${hebrewDate}`;
-                
-                const header = table.createTHead();
-                const headerRow = header.insertRow();
-                const daysOfWeek = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי'];
-                headerRow.innerHTML = `<th>שם תלמיד</th>`;
-
-                let hasNonEmptyHeader = false;
-
-                for (let i = 0; i < daysOfWeek.length; i++) {
-                    if ((week === 0 && i < firstDay) || (currentDayOfMonth > daysInMonth)) {
-                        headerRow.innerHTML += `<th colspan="2"> </th>`;
-                    } else {
-                        headerRow.innerHTML += `<th colspan="2">${daysOfWeek[i]} (${currentDayOfMonth})</th>`;
-                        currentDayOfMonth++;
-                        hasNonEmptyHeader = true;
-                        working_days++;
-                    }
-                    
-                }
-                currentDayOfMonth+=2;
-                // Adjust currentDayOfMonth for remaining empty cells if needed
-                if (currentDayOfMonth < daysInMonth + 1) {
-                    headerRow.innerHTML += `<th colspan="2"> </th>`;
-                }
-                
-                const tbody = table.createTBody(); // Create tbody for the table
-
-                if (hasNonEmptyHeader) {
-                    container.appendChild(weekHeader);
-                    container.appendChild(table);
+                const weekSection = createWeekTable(week + 1, year, month, firstDay, daysInMonth, currentDayOfMonth);
+                if (weekSection) {
+                    currentDayOfMonth = weekSection.nextDay; // Get the updated currentDayOfMonth
+                    container.appendChild(weekSection.element);
                 }
             }
+            createStudentRows();
         }
-        
-        // Call this function on page load to populate the selectors
+
         window.onload = function() {
             populateDateSelectors();
             const savedNames = localStorage.getItem('studentNames');
@@ -176,14 +163,14 @@
         function createStudentRows() {
             const namesText = document.getElementById('studentNames').value;
             const names = namesText.split('\n').filter(name => name.trim());
-            
-            const tables = document.querySelectorAll('#attendanceContainer table');
+
+            const tables = document.querySelectorAll('#weeks-container .week-table');
             tables.forEach(table => {
                 // Clear existing rows
                 const tbody = table.tBodies[0]; // Reference the existing tbody
                 tbody.innerHTML = ''; // Clear existing rows
-                
-                const headerCells = tbody.parentElement.getElementsByTagName('th');
+
+                const headerCells = table.getElementsByTagName('th');
 
                 names.forEach(name => {
                     const row = tbody.insertRow();
@@ -238,16 +225,16 @@
         function fillStandardTime(button, dayIndex, isEntrance) {
             const isFirstClass = document.querySelector('input[name="classTime"][value="first"]').checked;
             let time;
-            
+
             if (isFirstClass) {
                 time = isEntrance ? '19:30' : '21:00';
             } else {
                 time = isEntrance ? '21:00' : '22:30';
             }
-            
+
             const input = button.previousElementSibling;
             input.value = time;
-            
+
             // Move to next input after filling
             const inputs = Array.from(document.querySelectorAll('.time-input'));
             const currentIndex = inputs.indexOf(input);
@@ -262,12 +249,12 @@
             const isFirstClass = document.querySelector('input[name="classTime"][value="first"]').checked;
             const inTime = isFirstClass ? '19:30' : '21:00';
             const outTime = isFirstClass ? '21:00' : '22:30';
-            
+
             const inputs = row.querySelectorAll('.time-input');
             inputs.forEach((input, index) => {
                 input.value = index % 2 === 0 ? inTime : outTime;
             });
-            
+
             // Focus the first input of the next row if exists
             const nextRow = row.nextElementSibling;
             if (nextRow) {
@@ -279,15 +266,15 @@
 
         function moveToNextInput(event) {
             const input = event.target;
-            
+
             // Only allow numbers
             input.value = input.value.replace(/[^0-9]/g, '');
-            
+
             // Format the input as HH:MM
             if (input.value.length >= 4) {
                 input.value = input.value.slice(0, 2) + ':' + input.value.slice(2, 4);
             }
-            
+
             // Move to next input when 5 characters are entered (HH:MM)
             if (input.value.length === 5) {
                 const inputs = Array.from(document.querySelectorAll('.time-input'));
@@ -312,7 +299,7 @@
                 const etimeInMinutes = (ehours || 0) * 60 + (eminutes || 0);
                 const [lhours, lminutes] = leaveTime.split(':').map(Number);
                 const ltimeInMinutes = (lhours || 0) * 60 + (lminutes || 0);
-            
+
                 totalAttendanceTime += ltimeInMinutes - etimeInMinutes;
             }
              // Convert total attendance time back to HH:MM format
@@ -345,13 +332,13 @@
                     if (studentName === name) {
                         return row;
                     }
-                }   
+                }
             }
         }
 
         function updateSummaryTable(name) {
             let totalAttendanceTime = 0;
-            const tables = document.querySelectorAll('#attendanceContainer table');
+            const tables = document.querySelectorAll('#weeks-container .week-table');
             tables.forEach(table => {
                 const row = getRowForName(table, name);
                 if (row) {
@@ -379,6 +366,76 @@
                 payment = totalAttendanceTime * (600 / working_minutes);
             }
             summaryRow.cells[1].querySelector('.total-payment').innerText = payment.toFixed(2);
+        }
+
+        function toggleWeekTable(headerElement) {
+            const weekSection = headerElement.parentElement;
+            const table = weekSection.querySelector('.week-table');
+            table.classList.toggle('collapsed');
+            const icon = weekSection.querySelector('.toggle-icon');
+            icon.style.transform = table.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';
+        }
+
+        function createWeekTable(weekNumber, year, month, firstDay, daysInMonth, currentDayOfMonth) {
+            const weekSection = document.createElement('div');
+            weekSection.className = 'week-section';
+
+            // Create header
+            const weekHeader = document.createElement('div');
+            weekHeader.className = 'week-header';
+            weekHeader.onclick = function() { toggleWeekTable(this); };
+
+            const headerTitle = document.createElement('h3');
+            const hebrewDate = Hebcal.HDate(new Date(year, month, currentDayOfMonth)).getSedra('h');
+            headerTitle.textContent = `שבוע ${weekNumber} - ${hebrewDate}`;
+
+            const toggleIcon = document.createElement('span');
+            toggleIcon.className = 'toggle-icon';
+            toggleIcon.textContent = '▼';
+
+            weekHeader.appendChild(headerTitle);
+            weekHeader.appendChild(toggleIcon);
+
+            // Create table
+            const table = document.createElement('table');
+            table.className = 'week-table';
+
+            const header = table.createTHead();
+            const headerRow = header.insertRow();
+            const daysOfWeek = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי'];
+            headerRow.innerHTML = `<th>שם תלמיד</th>`;
+
+            let hasNonEmptyHeader = false;
+            let nextDayOfMonth = currentDayOfMonth;
+
+            for (let i = 0; i < daysOfWeek.length; i++) {
+                if ((weekNumber === 1 && i < firstDay) || (nextDayOfMonth > daysInMonth)) {
+                    headerRow.innerHTML += `<th colspan="2"> </th>`;
+                } else {
+                    headerRow.innerHTML += `<th colspan="2">${daysOfWeek[i]} (${nextDayOfMonth})</th>`;
+                    nextDayOfMonth++;
+                    hasNonEmptyHeader = true;
+                    working_days++;
+                }
+            }
+            nextDayOfMonth += 2;
+
+            if (nextDayOfMonth < daysInMonth + 1) {
+                headerRow.innerHTML += `<th colspan="2"> </th>`;
+            }
+
+            table.createTBody();
+
+            if (hasNonEmptyHeader) {
+                weekSection.appendChild(weekHeader);
+                weekSection.appendChild(table);
+                return {
+                    element: weekSection,
+                    nextDay: nextDayOfMonth
+                };
+            }
+
+            return null;
         }
     </script>
 </body>
