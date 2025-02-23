@@ -23,6 +23,46 @@
             background: #2196F3;
         }
         .v-button-all:hover { background: #1976D2; }
+        #disconnectBtn {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #disconnectBtn:hover {
+            background-color: #d32f2f;
+        }
+        #signInBtn, #signOutBtn {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #signInBtn:hover, #signOutBtn:hover {
+            background-color: #1976D2;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-spinner {
+            display: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
         .name-cell {
             display: flex;
             align-items: center;
@@ -60,33 +100,242 @@
             transform: rotate(-90deg);
         }
     </style>
+    <script>
+        // For setup instructions, see setup_instructions.md
+        const CLIENT_ID = '243689516336-u5h8m4b12itfassvkj13ad2uuuuo31eq.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyAZV96Pne246y1C3vi3Qc6VCv4ZjjNqXek';
+        const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
+        const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+        let initializationInProgress = false;
+
+        // Load stored token on startup
+        async function loadStoredToken() {
+            if (!gapiInited || !gisInited) {
+                console.log('APIs not yet initialized');
+                return false;
+            }
+            const storedToken = localStorage.getItem('gapi_token');
+            if (storedToken) {
+                try {
+                    const token = JSON.parse(storedToken);
+
+                    // Try to use token even without expiry info
+                    gapi.client.setToken(token);
+
+                    // Verify token is valid by making a test request
+                    try {
+                        await gapi.client.request({
+                            path: 'https://sheets.googleapis.com/$discovery/rest?version=v4',
+                        });
+                        return true;
+                    } catch (err) {
+                        console.error('Token validation failed:', err);
+                        localStorage.removeItem('gapi_token');
+                        return false;
+                    }
+                } catch (e) {
+                    console.error('Error processing stored token:', e);
+                    localStorage.removeItem('gapi_token');
+                }
+            }
+            return false;
+        }
+
+        // Store token for future use
+        function storeToken() {
+            const token = gapi.client.getToken();
+            if (token) {
+                localStorage.setItem('gapi_token', JSON.stringify(token));
+            } else {
+                console.log('No token to store');
+            }
+        }
+
+        // Clear stored token
+        function clearStoredToken() {
+            localStorage.removeItem('gapi_token');
+            gapi.client.setToken(null);
+        }
+
+        // Clear all stored data
+        function clearAllData() {
+            localStorage.clear(); // Clear all localStorage data
+            document.getElementById('spreadsheetUrl').value = '';
+            document.getElementById('studentNames').value = '';
+            document.getElementById('sheetLink').innerHTML = '';
+            updateAttendanceTable();
+        }
+
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            try {
+                await gapi.client.init({
+                    apiKey: API_KEY,
+                    discoveryDocs: [DISCOVERY_DOC],
+                });
+                gapiInited = true;
+                if (gisInited) { // Only proceed if both APIs are ready
+                    maybeEnableButtons();
+                }
+            } catch (err) {
+                console.error('Error initializing gapi.client:', err);
+                document.getElementById('authStatus').textContent = 'שגיאה באתחול Google API';
+                document.getElementById('authStatus').style.color = '#f44336';
+                // Clear any stored token as it might be invalid
+                clearStoredToken();
+            }
+        }
+
+        function gisLoaded() {
+            try {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: SCOPES,
+                    callback: '', // defined later
+                });
+                gisInited = true;
+                if (gapiInited) { // Only proceed if both APIs are ready
+                    maybeEnableButtons();
+                }
+            } catch (err) {
+                console.error('Error initializing tokenClient:', err);
+                document.getElementById('authStatus').textContent = 'שגיאה באתחול OAuth';
+                document.getElementById('authStatus').style.color = '#f44336';
+                // Clear any stored token as it might be invalid
+                clearStoredToken();
+            }
+        }
+
+        async function maybeEnableButtons() {
+            if (initializationInProgress) {
+                return; // Prevent multiple concurrent initializations
+            }
+
+            try {
+                initializationInProgress = true;
+
+                if (gapiInited && gisInited) {
+                    try {
+                        // Try to load stored token
+                        if (await loadStoredToken()) {
+                            document.getElementById('signInBtn').style.display = 'none';
+                            document.getElementById('signOutBtn').style.display = 'inline-block';
+                            document.getElementById('disconnectBtn').style.display = 'inline-block';
+                            document.getElementById('disconnectInfo').style.display = 'block';
+                            document.getElementById('authStatus').textContent = 'מחובר';
+                            document.getElementById('authStatus').style.color = '#4CAF50';
+                            await initializeSheet().catch(err => {
+                                console.error('Failed to initialize with stored token:', err);
+                                clearStoredToken(); // Clear invalid token
+                                document.getElementById('signInBtn').style.display = 'inline-block';
+                                document.getElementById('signOutBtn').style.display = 'none';
+                                document.getElementById('disconnectBtn').style.display = 'none';
+                                document.getElementById('disconnectInfo').style.display = 'none';
+                                document.getElementById('authStatus').textContent = 'נדרשת התחברות מחדש';
+                                document.getElementById('authStatus').style.color = '#f44336';
+                            });
+                        } else {
+                            document.getElementById('signInBtn').style.display = 'inline-block';
+                            document.getElementById('authStatus').textContent = 'יש להתחבר לחשבון Google';
+                            document.getElementById('authStatus').style.color = '#666';
+                        }
+                    } catch (err) {
+                        console.error('Error in maybeEnableButtons:', err);
+                        document.getElementById('signInBtn').style.display = 'inline-block';
+                        document.getElementById('authStatus').textContent = 'שגיאה באתחול, נסה שוב';
+                        document.getElementById('authStatus').style.color = '#f44336';
+                        clearStoredToken(); // Clear potentially corrupted token
+                    }
+                } else if (!gapiInited) {
+                    document.getElementById('authStatus').textContent = 'ממתין לאתחול Google API';
+                    document.getElementById('authStatus').style.color = '#ff9800';
+                } else if (!gisInited) {
+                    document.getElementById('authStatus').textContent = 'ממתין לאתחול OAuth';
+                    document.getElementById('authStatus').style.color = '#ff9800';
+                }
+            } finally {
+                initializationInProgress = false;
+            }
+        }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/date-fns@4.1.0/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hebcal@2.3.2/client/hebcal.noloc.min.js"></script>
+    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <meta name="google-signin-client_id" content="YOUR_CLIENT_ID.apps.googleusercontent.com">
 </head>
 <body>
     <h1>טופס נוכחות שבועי</h1>
     <div style="margin-bottom: 20px;">
+        <div id="googleAuth" style="margin-bottom: 20px;">
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button id="signInBtn">התחבר לגוגל</button>
+                <button id="signOutBtn" style="display: none;">התנתק</button>
+                <button id="disconnectBtn" style="display: none; background-color: #f44336;">נתק לצמיתות</button>
+                <div id="authStatus" style="margin-left: 10px;"></div>
+            </div>
+            <div id="disconnectInfo" style="display: none; font-size: 0.9em; color: #666; margin-top: 5px;">
+                * ניתוק לצמיתות יבטל את ההרשאות לגיליון וימחק את כל הנתונים המקומיים
+            </div>
+        </div>
+        <div id="sheetsConfig" style="margin-bottom: 20px;">
+            <label for="spreadsheetUrl">כתובת גיליון גוגל:</label>
+            <div style="display: flex; align-items: center;">
+                <input type="text" id="spreadsheetUrl" style="width: 300px;" 
+                       placeholder="הדבק את כתובת הגיליון"
+                       oninput="handleSpreadsheetChange()"
+                       onpaste="setTimeout(handleSpreadsheetChange, 0)">
+                <div id="urlSpinner" class="loading-spinner"></div>
+            </div>
+            <div id="sheetLink" style="margin-top: 5px;"></div>
+            <div class="setup-instructions" style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                הוראות הגדרה:
+                <ol>
+                    <li>צור גיליון חדש ב-Google Sheets</li>
+                    <li>העתק את כתובת הגיליון מהדפדפן</li>
+                    <li>הדבק את הכתובת בשדה למעלה</li>
+                    <li>לחץ על כפתור "התחבר לגוגל" ואשר את ההרשאות</li>
+                </ol>
+                <div style="margin-top: 5px;">
+                    דוגמה לכתובת תקינה:
+                    <code style="background: #f5f5f5; padding: 2px 4px; border-radius: 3px;">
+                        https://docs.google.com/spreadsheets/d/1234...xyz/edit
+                    </code>
+                </div>
+            </div>
+        </div>
         <label for="monthSelect">בחר חודש:</label>
-        <select id="monthSelect" onchange="updateAttendanceTable(); createStudentRows()"></select>
+        <select id="monthSelect"></select>
         <label for="yearSelect">בחר שנה:</label>
-        <select id="yearSelect" onchange="updateAttendanceTable(); createStudentRows()"></select>
+        <select id="yearSelect"></select>
     </div>
     <div class="class-selector">
         <label>
-            <input type="radio" name="classTime" value="first" checked onchange="updateClassTime()">
+            <input type="radio" name="classTime" value="first" checked>
             כיתה ראשונה (19:30 - 21:00)
         </label>
         <label>
-            <input type="radio" name="classTime" value="second" onchange="updateClassTime()">
+            <input type="radio" name="classTime" value="second">
             כיתה שנייה (21:00 - 22:30)
         </label>
     </div>
     <div style="margin-bottom: 20px;">
         <textarea id="studentNames" rows="4" style="width: 100%; margin-bottom: 10px;"
-            placeholder="הדבק כאן את שמות התלמידים, אחד בכל שורה"
-            oninput="updateAttendanceTable();"></textarea>
+            placeholder="הדבק כאן את שמות התלמידים, אחד בכל שורה"></textarea>
+        <div class="setup-instructions" style="font-size: 0.9em; color: #666; margin-top: 5px;">
+            הערה: הגיליון ייצור לשונית חדשה לכל חודש בפורמט yyyy.mm
+        </div>
     </div>
-    <div id="weeks-container"></div>
+    <div id="weeks-container">
+        <!-- This container will be populated with attendance tables -->
+    </div>
     <table id="summaryTable">
         <thead>
         <tr>
@@ -100,12 +349,413 @@
     <script>
         let working_days = 0;
 
+        async function handleAuthClick() {
+            if (!gapiInited || !gisInited) {
+                document.getElementById('authStatus').textContent = 'ממתין לאתחול המערכת';
+                document.getElementById('authStatus').style.color = '#ff9800';
+                return;
+            }
+
+            if (initializationInProgress) {
+                document.getElementById('authStatus').textContent = 'תהליך התחברות בביצוע';
+                document.getElementById('authStatus').style.color = '#ff9800';
+                return;
+            }
+
+            initializationInProgress = true;
+
+            try {
+                tokenClient.callback = async (resp) => {
+                    try {
+                        if (resp.error !== undefined) {
+                            console.error('Auth error:', resp);
+                            let errorMessage = 'שגיאה בהתחברות';
+                            let errorDetails = '';
+
+                            // Provide specific error messages for authentication issues
+                            if (resp.error === 'popup_closed_by_user') {
+                                errorMessage = 'החלון נסגר לפני השלמת ההתחברות';
+                            } else if (resp.error === 'access_denied') {
+                                errorMessage = 'ההרשאות לא אושרו';
+                            } else if (resp.error === 'immediate_failed') {
+                                errorMessage = 'נדרשת התחברות מחדש';
+                            } else if (resp.error === 'redirect_uri_mismatch') {
+                                errorMessage = 'שגיאת הגדרות OAuth - URI לא תקין';
+                            }
+
+                            // Add error details
+                            if (resp.error || resp.error_subtype) {
+                                errorDetails = `\n(${resp.error}${resp.error_subtype ? ': ' + resp.error_subtype : ''})`;
+                            }
+
+                            const statusElement = document.getElementById('authStatus');
+                            statusElement.textContent = errorMessage + errorDetails;
+                            statusElement.style.color = '#f44336';
+                            statusElement.style.whiteSpace = 'pre-line';
+                        } else {
+                            // Store and validate token immediately
+                            storeToken();
+
+                            // Verify token works with a test request
+                            try {
+                                await gapi.client.request({
+                                    path: 'https://sheets.googleapis.com/$discovery/rest?version=v4',
+                                });
+
+                                document.getElementById('signInBtn').style.display = 'none';
+                                document.getElementById('signOutBtn').style.display = 'inline-block';
+                                document.getElementById('disconnectBtn').style.display = 'inline-block';
+                                document.getElementById('disconnectInfo').style.display = 'block';
+                                document.getElementById('authStatus').textContent = 'מחובר';
+                                document.getElementById('authStatus').style.color = '#4CAF50';
+                                await initializeSheet();
+                            } catch (validationErr) {
+                                console.error('New token validation failed:', validationErr);
+                                clearStoredToken();
+                                throw new Error('Token validation failed after authentication');
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Auth callback error:', err);
+                        clearStoredToken();
+
+                        // Reset UI state
+                        document.getElementById('signInBtn').style.display = 'inline-block';
+                        document.getElementById('signOutBtn').style.display = 'none';
+                        document.getElementById('disconnectBtn').style.display = 'none';
+                        document.getElementById('disconnectInfo').style.display = 'none';
+
+                        // Show specific error message
+                        const errorMessage = err.message === 'Token validation failed after authentication'
+                            ? 'אימות הטוקן נכשל, נא לנסות שוב'
+                            : 'שגיאה בתהליך ההתחברות';
+
+                        document.getElementById('authStatus').textContent = errorMessage;
+                        document.getElementById('authStatus').style.color = '#f44336';
+                    } finally {
+                        initializationInProgress = false;
+                    }
+                };
+
+                const token = gapi.client.getToken();
+                tokenClient.requestAccessToken({
+                    prompt: token === null ? 'consent' : ''
+                });
+            } catch (err) {
+                console.error('Auth request error:', err);
+                document.getElementById('authStatus').textContent = 'שגיאה בבקשת ההתחברות';
+                document.getElementById('authStatus').style.color = '#f44336';
+                initializationInProgress = false;
+            }
+        }
+
+        async function handleSignoutClick() {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                try {
+                    await google.accounts.oauth2.revoke(token.access_token);
+                    clearStoredToken();
+                    document.getElementById('signInBtn').style.display = 'inline-block';
+                    document.getElementById('signOutBtn').style.display = 'none';
+                    document.getElementById('authStatus').textContent = 'מנותק';
+                    document.getElementById('authStatus').style.color = '#666';
+                } catch (err) {
+                    console.error('Error revoking token:', err);
+                    // Clear token anyway as it might be expired
+                    clearStoredToken();
+                    document.getElementById('signInBtn').style.display = 'inline-block';
+                    document.getElementById('signOutBtn').style.display = 'none';
+                    document.getElementById('disconnectBtn').style.display = 'none';
+                    document.getElementById('disconnectInfo').style.display = 'none';
+                    document.getElementById('authStatus').textContent = 'מנותק (שגיאה בביטול ההרשאות)';
+                    document.getElementById('authStatus').style.color = '#f44336';
+                }
+            }
+        }
+
+        async function initializeSheet() {
+            const url = document.getElementById('spreadsheetUrl').value.trim();
+            if (!url) {
+                document.getElementById('authStatus').textContent = 'נא להזין כתובת גיליון';
+                document.getElementById('authStatus').style.color = '#f44336';
+                return;
+            }
+
+            const spreadsheetId = getSpreadsheetIdFromUrl(url);
+            if (!spreadsheetId) {
+                document.getElementById('authStatus').textContent = 'כתובת הגיליון אינה תקינה. יש להעתיק את הכתובת המלאה מהדפדפן';
+                document.getElementById('authStatus').style.color = '#f44336';
+                return;
+            }
+
+            try {
+                const month = document.getElementById('monthSelect').value;
+                const year = document.getElementById('yearSelect').value;
+                const sheetName = `${year}.${String(parseInt(month) + 1).padStart(2, '0')}`;
+
+                // Check if the sheet exists
+                const response = await gapi.client.sheets.spreadsheets.get({
+                    spreadsheetId: spreadsheetId
+                });
+
+                const sheets = response.result.sheets;
+                const sheetExists = sheets.some(sheet => sheet.properties.title === sheetName);
+
+                if (!sheetExists) {
+                    // Create new sheet for the month
+                    await gapi.client.sheets.spreadsheets.batchUpdate({
+                        spreadsheetId: spreadsheetId,
+                        resource: {
+                            requests: [{
+                                addSheet: {
+                                    properties: {
+                                        title: sheetName
+                                    }
+                                }
+                            }]
+                        }
+                    });
+                }
+
+                // Load student data from the sheet
+                await loadStudentsFromSheet(spreadsheetId, sheetName);
+                document.getElementById('authStatus').textContent = 'מחובר לגיליון';
+                document.getElementById('authStatus').style.color = '#4CAF50';
+            } catch (err) {
+                console.error('Error:', err);
+                let errorMessage = 'שגיאה בהתחברות לגיליון';
+                let errorDetails = '';
+
+                // Extract error details
+                const errorBody = err.body ? JSON.parse(err.body) : null;
+                const errorCode = err.status || (errorBody && errorBody.error && errorBody.error.code);
+                const errorText = (errorBody && errorBody.error && errorBody.error.message) || err.message || err.error;
+
+                // Provide specific error messages
+                if (err.status === 403) {
+                    errorMessage = 'אין הרשאות מתאימות לגיליון';
+                } else if (err.status === 404) {
+                    errorMessage = 'הגיליון לא נמצא';
+                } else if (err.error === 'redirect_uri_mismatch') {
+                    errorMessage = 'שגיאת הגדרות OAuth - URI לא תקין';
+                } else if (err.error === 'invalid_client') {
+                    errorMessage = 'שגיאת הגדרות OAuth - מזהה לקוח לא תקין';
+                } else if (err.error === 'unauthorized_client') {
+                    errorMessage = 'המשתמש לא מורשה להשתמש באפליקציה';
+                }
+
+                // Add error details if available
+                if (errorCode || errorText) {
+                    errorDetails = `\n(${errorCode || 'Error'}: ${errorText || 'Unknown error'})`;
+                }
+
+                const statusElement = document.getElementById('authStatus');
+                statusElement.textContent = errorMessage + errorDetails;
+                statusElement.style.color = '#f44336';
+                statusElement.style.whiteSpace = 'pre-line';
+            }
+        }
+
+        async function loadStudentsFromSheet(spreadsheetId, sheetName) {
+            try {
+                const response = await gapi.client.sheets.spreadsheets.values.get({
+                    spreadsheetId: spreadsheetId,
+                    range: `${sheetName}!A:A`
+                });
+
+                const values = response.result.values;
+                if (values && values.length > 0) {
+                    const studentNames = values.map(row => row[0]).join('\n');
+                    document.getElementById('studentNames').value = studentNames;
+                    createStudentRows();
+                }
+            } catch (err) {
+                console.error('Error loading students:', err);
+                let errorMessage = 'שגיאה בטעינת רשימת התלמידים';
+                let errorDetails = '';
+
+                // Extract error details
+                const errorBody = err.body ? JSON.parse(err.body) : null;
+                const errorCode = err.status || (errorBody && errorBody.error && errorBody.error.code);
+                const errorText = (errorBody && errorBody.error && errorBody.error.message) || err.message;
+
+                if (err.status === 403) {
+                    errorMessage = 'אין הרשאות קריאה מהגיליון';
+                } else if (err.status === 404) {
+                    errorMessage = 'הגיליון או הלשונית לא נמצאו';
+                } else if (err.status === 400) {
+                    errorMessage = 'שגיאה בפורמט הנתונים בגיליון';
+                }
+
+                // Add error details if available
+                if (errorCode || errorText) {
+                    errorDetails = `\n(${errorCode || 'Error'}: ${errorText || 'Unknown error'})`;
+                }
+
+                const statusElement = document.getElementById('authStatus');
+                statusElement.textContent = errorMessage + errorDetails;
+                statusElement.style.color = '#f44336';
+                statusElement.style.whiteSpace = 'pre-line';
+            }
+        }
+
+        async function saveStudentsToSheet() {
+            const url = document.getElementById('spreadsheetUrl').value.trim();
+            const spreadsheetId = getSpreadsheetIdFromUrl(url);
+            if (!spreadsheetId) {
+                document.getElementById('authStatus').textContent = 'כתובת גיליון לא תקינה';
+                document.getElementById('authStatus').style.color = '#f44336';
+                return;
+            }
+
+            const month = document.getElementById('monthSelect').value;
+            const year = document.getElementById('yearSelect').value;
+            const sheetName = `${year}.${String(parseInt(month) + 1).padStart(2, '0')}`;
+
+            const studentNames = document.getElementById('studentNames').value.split('\n').filter(name => name.trim());
+            const values = studentNames.map(name => [name.trim()]);
+
+            try {
+                await gapi.client.sheets.spreadsheets.values.update({
+                    spreadsheetId: spreadsheetId,
+                    range: `${sheetName}!A1:A${values.length}`,
+                    valueInputOption: 'RAW',
+                    resource: { values }
+                });
+                document.getElementById('authStatus').textContent = 'הנתונים נשמרו בהצלחה';
+                document.getElementById('authStatus').style.color = '#4CAF50';
+            } catch (err) {
+                console.error('Error saving students:', err);
+                let errorMessage = 'שגיאה בשמירת הנתונים';
+                let errorDetails = '';
+
+                // Extract error details
+                const errorBody = err.body ? JSON.parse(err.body) : null;
+                const errorCode = err.status || err.code || (errorBody && errorBody.error && errorBody.error.code);
+                const errorText = (errorBody && errorBody.error && errorBody.error.message) || err.message;
+
+                if (err.status === 403) {
+                    errorMessage = 'אין הרשאות כתיבה לגיליון';
+                } else if (err.status === 404) {
+                    errorMessage = 'הגיליון או הלשונית לא נמצאו';
+                } else if (err.status === 400) {
+                    errorMessage = 'שגיאה בפורמט הנתונים';
+                } else if (err.code === 429) {
+                    errorMessage = 'נסיונות רבים מדי, נא להמתין מעט';
+                }
+
+                // Add error details if available
+                if (errorCode || errorText) {
+                    errorDetails = `\n(${errorCode || 'Error'}: ${errorText || 'Unknown error'})`;
+                }
+
+                const statusElement = document.getElementById('authStatus');
+                statusElement.textContent = errorMessage + errorDetails;
+                statusElement.style.color = '#f44336';
+                statusElement.style.whiteSpace = 'pre-line';
+            }
+        }
+
+        let spreadsheetChangeTimeout;
+
+        function handleSpreadsheetChange() {
+            // Clear previous timeout
+            if (spreadsheetChangeTimeout) {
+                clearTimeout(spreadsheetChangeTimeout);
+            }
+
+            const url = document.getElementById('spreadsheetUrl').value.trim();
+            const statusElement = document.getElementById('authStatus');
+
+            if (!url) {
+                statusElement.textContent = 'נא להזין כתובת גיליון';
+                statusElement.style.color = '#f44336';
+                clearInvalidSpreadsheetUrl();
+                return;
+            }
+
+            // Show loading state immediately
+            statusElement.textContent = 'בודק את כתובת הגיליון...';
+            statusElement.style.color = '#ff9800';
+            document.getElementById('urlSpinner').style.display = 'inline-block';
+
+            // Debounce the validation and loading
+            spreadsheetChangeTimeout = setTimeout(async () => {
+                const spreadsheetId = getSpreadsheetIdFromUrl(url);
+                if (!spreadsheetId) {
+                    statusElement.textContent = 'כתובת הגיליון אינה תקינה. יש להעתיק את הכתובת המלאה מהדפדפן';
+                    statusElement.style.color = '#f44336';
+                    clearInvalidSpreadsheetUrl();
+                    document.getElementById('urlSpinner').style.display = 'none';
+                    return;
+                }
+
+                try {
+                    // Try to validate the spreadsheet ID with a test request
+                    if (gapi.client && gapi.client.getToken()) {
+                        await gapi.client.sheets.spreadsheets.get({
+                            spreadsheetId: spreadsheetId
+                        });
+
+                        // If successful, save and update UI
+                        localStorage.setItem('spreadsheetUrl', url);
+                        updateSheetLink(url, spreadsheetId);
+                        statusElement.textContent = 'הגיליון נמצא ונטען בהצלחה';
+                        statusElement.style.color = '#4CAF50';
+                        document.getElementById('urlSpinner').style.display = 'none';
+                        await initializeSheet();
+                    } else {
+                        // Save URL but indicate that auth is needed
+                        localStorage.setItem('spreadsheetUrl', url);
+                        updateSheetLink(url, spreadsheetId);
+                        statusElement.textContent = 'נא להתחבר לחשבון Google';
+                        statusElement.style.color = '#ff9800';
+                        document.getElementById('urlSpinner').style.display = 'none';
+                    }
+                } catch (err) {
+                    console.error('Error validating spreadsheet:', err);
+                    statusElement.textContent = 'לא ניתן לגשת לגיליון. נא לוודא שיש הרשאות מתאימות';
+                    statusElement.style.color = '#f44336';
+                    clearInvalidSpreadsheetUrl();
+                    document.getElementById('urlSpinner').style.display = 'none';
+                }
+            }, 500); // Wait 500ms before validating
+        }
+
+        async function handleMonthYearChange() {
+            const container = document.getElementById('weeks-container');
+            const url = document.getElementById('spreadsheetUrl').value.trim();
+            const spreadsheetId = getSpreadsheetIdFromUrl(url);
+
+            try {
+                container.classList.add('loading');
+                if (spreadsheetId && gapi.client && gapi.client.getToken()) {
+                    await initializeSheet();
+                } else {
+                    updateAttendanceTable();
+                    createStudentRows();
+                }
+            } catch (err) {
+                console.error('Error updating sheet:', err);
+                document.getElementById('authStatus').textContent = 'שגיאה בעדכון הגיליון';
+                document.getElementById('authStatus').style.color = '#f44336';
+            } finally {
+                container.classList.remove('loading');
+            }
+        }
+
         function populateDateSelectors() {
             const monthSelect = document.getElementById('monthSelect');
             const yearSelect = document.getElementById('yearSelect');
             const currentDate = new Date();
             const previousMonth = (currentDate.getMonth() - 1 + 12) % 12; // Default to previous month
             const currentYear = currentDate.getFullYear();
+
+            // Update event listeners for month and year selectors
+            monthSelect.removeEventListener('change', handleMonthYearChange);
+            yearSelect.removeEventListener('change', handleMonthYearChange);
+            monthSelect.addEventListener('change', handleMonthYearChange);
+            yearSelect.addEventListener('change', handleMonthYearChange);
 
             // Populate month dropdown
             for (let i = 0; i < 12; i++) {
@@ -135,7 +785,11 @@
             const endOfMonth = new Date(year, month + 1, 0);
             const daysInMonth = endOfMonth.getDate(); // Get days in month
             const weeks = Math.ceil((daysInMonth + firstDay) / 7); // Calculate number of weeks considering the first day
-            const container = document.getElementById('attendanceContainer');
+            const container = document.getElementById('weeks-container');
+            if (!container) {
+                console.error('Error: weeks-container element not found');
+                return;
+            }
             container.innerHTML = ''; // Clear existing tables
 
             let currentDayOfMonth = 1;
@@ -152,7 +806,57 @@
         }
 
         window.onload = function() {
+            // Check API credentials
+            if (CLIENT_ID === 'YOUR_CLIENT_ID.apps.googleusercontent.com' || API_KEY === 'YOUR_API_KEY') {
+                console.warn('Warning: Google API credentials are not set. Please replace YOUR_CLIENT_ID and YOUR_API_KEY with actual credentials.');
+                document.getElementById('authStatus').textContent = 'אנא הגדר את פרטי ההתחברות ל-Google API';
+                document.getElementById('authStatus').style.color = '#ff9800';
+            }
+
+            // Set up event listeners
+            document.getElementById('signInBtn').addEventListener('click', handleAuthClick);
+            document.getElementById('signOutBtn').addEventListener('click', handleSignoutClick);
+            document.getElementById('disconnectBtn').addEventListener('click', async () => {
+                if (confirm('האם אתה בטוח שברצונך לנתק את האפליקציה לצמיתות? פעולה זו תמחק את כל הנתונים המקומיים.')) {
+                    await handleSignoutClick();
+                    clearAllData();
+                    document.getElementById('disconnectBtn').style.display = 'none';
+                    document.getElementById('disconnectInfo').style.display = 'none';
+                    document.getElementById('authStatus').textContent = 'האפליקציה נותקה לצמיתות';
+                    document.getElementById('authStatus').style.color = '#f44336';
+                }
+            });
+
+            // Set up class time radio button listeners
+            document.querySelectorAll('input[name="classTime"]').forEach(radio => {
+                radio.addEventListener('change', updateClassTime);
+            });
+
+            // Set up student names textarea listener
+            document.getElementById('studentNames').addEventListener('input', updateAttendanceTable);
+
+            // Check if Google API is available
+            if (typeof gapi === 'undefined') {
+                document.getElementById('authStatus').textContent = 'שגיאה: Google API לא זמין';
+                document.getElementById('authStatus').style.color = '#f44336';
+            }
+
             populateDateSelectors();
+
+            // Restore spreadsheet URL if previously saved
+            const savedUrl = localStorage.getItem('spreadsheetUrl');
+            if (savedUrl) {
+                const urlInput = document.getElementById('spreadsheetUrl');
+                urlInput.value = savedUrl;
+                const spreadsheetId = getSpreadsheetIdFromUrl(savedUrl);
+                if (spreadsheetId) {
+                    updateSheetLink(savedUrl, spreadsheetId);
+                } else {
+                    clearInvalidSpreadsheetUrl();
+                }
+            }
+
+            // Initialize from localStorage as fallback
             const savedNames = localStorage.getItem('studentNames');
             if (savedNames) {
                 document.getElementById('studentNames').value = savedNames;
@@ -160,9 +864,95 @@
             }
         };
 
-        function createStudentRows() {
+        // Extract spreadsheet ID from URL
+        function getSpreadsheetIdFromUrl(url) {
+            if (!url) return null;
+
+            try {
+                // Handle different URL formats
+                const patterns = [
+                    /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/, // Normal URL
+                    /^([a-zA-Z0-9-_]+)$/  // Direct ID
+                ];
+
+                for (const pattern of patterns) {
+                    const match = url.match(pattern);
+                    if (match && match[1]) {
+                        const id = match[1];
+                        // Validate ID format (at least 20 chars of alphanumeric + special chars)
+                        if (id.length >= 20 && /^[a-zA-Z0-9-_]+$/.test(id)) {
+                            return id;
+                        }
+                    }
+                }
+                return null;
+            } catch (e) {
+                console.error('Error parsing spreadsheet URL:', e);
+                return null;
+            }
+        }
+
+        function clearInvalidSpreadsheetUrl() {
+            localStorage.removeItem('spreadsheetUrl');
+            document.getElementById('spreadsheetUrl').value = '';
+            document.getElementById('sheetLink').innerHTML = '';
+            document.getElementById('urlSpinner').style.display = 'none';
+            document.getElementById('authStatus').textContent = 'נא להזין כתובת גיליון תקינה';
+            document.getElementById('authStatus').style.color = '#f44336';
+        }
+
+        // Update sheet link
+        function updateSheetLink(url, spreadsheetId) {
+            const linkContainer = document.getElementById('sheetLink');
+            if (spreadsheetId) {
+                const fullUrl = url.includes('http') ? url : 
+                    `https://docs.google.com/spreadsheets/d/${spreadsheetId}`;
+                linkContainer.innerHTML = `<a href="${fullUrl}" target="_blank" style="color: #1a73e8;">פתח את הגיליון</a>`;
+            } else {
+                linkContainer.innerHTML = '';
+            }
+        }
+
+        // Handle spreadsheet URL changes
+        document.getElementById('spreadsheetUrl').addEventListener('change', function() {
+            const url = this.value.trim();
+            const spreadsheetId = getSpreadsheetIdFromUrl(url);
+
+            if (spreadsheetId) {
+                localStorage.setItem('spreadsheetUrl', url);
+                updateSheetLink(url, spreadsheetId);
+
+                if (gapi.client && gapi.client.getToken()) {
+                    initializeSheet().catch(err => {
+                        console.error('Failed to initialize sheet:', err);
+                        document.getElementById('authStatus').textContent = 'שגיאה בהתחברות לגיליון';
+                    });
+                }
+            } else {
+                document.getElementById('authStatus').textContent = 'כתובת גיליון לא תקינה';
+                document.getElementById('authStatus').style.color = '#f44336';
+            }
+        });
+
+        async function createStudentRows() {
             const namesText = document.getElementById('studentNames').value;
             const names = namesText.split('\n').filter(name => name.trim());
+
+            // Save to localStorage as fallback
+            localStorage.setItem('studentNames', namesText);
+
+            // Save to Google Sheets if authenticated
+            const url = document.getElementById('spreadsheetUrl').value.trim();
+            const spreadsheetId = getSpreadsheetIdFromUrl(url);
+            if (spreadsheetId && gapi.client && gapi.client.getToken()) {
+                try {
+                    await saveStudentsToSheet();
+                } catch (err) {
+                    console.error('Failed to save to Google Sheets:', err);
+                    document.getElementById('authStatus').textContent = 'שגיאה בשמירת נתונים';
+                    document.getElementById('authStatus').style.color = '#f44336';
+                }
+            }
 
             const tables = document.querySelectorAll('#weeks-container .week-table');
             tables.forEach(table => {
