@@ -38,20 +38,10 @@
    - Click "Save and Continue"
    - Complete the configuration and publish the app
 
-9. Create an API key:
-   - Go to "Credentials"
-   - Click "Create Credentials" > "API Key"
-   - Restrict the API key:
-     * Set application restrictions to "HTTP referrers"
-     * Add your authorized domains (localhost:8000 and your GitHub Pages domain)
-     * Restrict the key to Google Sheets API only
-10. Add test users to https://console.cloud.google.com/auth/audience?inv=1&invt=AbqWTg&project=time-entry-451814
-
 ### 2. Update Application Credentials
 
 1. Open `time_entry_app.html`
 2. Replace `YOUR_CLIENT_ID` with your OAuth 2.0 client ID
-3. Replace `YOUR_API_KEY` with your API key
 
 ### 3. OAuth Troubleshooting
 
@@ -72,11 +62,6 @@ If you encounter OAuth-related errors:
    - "invalid_client": Check that the client ID is correctly copied to the HTML file
    - "unauthorized_client": Ensure you're added as a test user
    - "access_denied": Check OAuth consent screen configuration
-
-4. API Key Issues:
-   - Verify the key is restricted to your domains
-   - Check that the Google Sheets API is enabled
-   - Ensure the key is restricted to only necessary APIs
 
 ## Local Development Setup
 
@@ -101,19 +86,20 @@ If you encounter OAuth-related errors:
 
 ## Security Considerations
 
-### Client-Side Credentials
-- The CLIENT_ID and API_KEY are visible in the client-side code
+### Client-Side Authentication
+- The CLIENT_ID is visible in the client-side code
 - This is acceptable for this application because:
   * The OAuth flow requires client-side implementation
-  * These credentials are restricted by domain in Google Cloud Console
+  * The OAuth flow provides secure authentication
   * Additional security is provided by OAuth consent screen
+  * Access tokens are securely handled and stored
 
 ### Best Practices
 1. Set up proper domain restrictions in Google Cloud Console
-2. Regularly monitor API usage in Google Cloud Console
-3. Keep the API key's scope limited to necessary APIs only
-4. Never commit actual credentials to version control
-5. Use environment variables or configuration files for local development
+2. Regularly monitor OAuth usage in Google Cloud Console
+3. Never commit actual credentials to version control
+4. Use environment variables or configuration files for local development
+5. Regularly review authorized applications and revoke unused access
 
 ## Troubleshooting
 
@@ -128,5 +114,11 @@ If you encounter OAuth-related errors:
 
 3. OAuth errors
    - Verify all authorized origins and redirect URIs are properly configured
-   - Check that the credentials are correctly copied into the application
+   - Check that the client ID is correctly copied into the application
    - Ensure the Google Sheets API is enabled in your project
+   - Check that you're signed in with an authorized test user account
+
+4. Token Refresh Issues
+   - Clear browser cache and stored tokens
+   - Sign out and sign in again
+   - Check that your OAuth consent screen configuration is correct

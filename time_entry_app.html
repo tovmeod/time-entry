@@ -103,7 +103,6 @@
     <script>
         // For setup instructions, see setup_instructions.md
         const CLIENT_ID = '243689516336-u5h8m4b12itfassvkj13ad2uuuuo31eq.apps.googleusercontent.com';
-        const API_KEY = 'AIzaSyAZV96Pne246y1C3vi3Qc6VCv4ZjjNqXek';
         const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
         const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
@@ -111,6 +110,7 @@
         let gapiInited = false;
         let gisInited = false;
         let initializationInProgress = false;
+        let accessToken = null;
 
         // Load stored token on startup
         async function loadStoredToken() {
@@ -122,9 +122,16 @@
             if (storedToken) {
                 try {
                     const token = JSON.parse(storedToken);
+                    accessToken = token.access_token;
 
-                    // Try to use token even without expiry info
-                    gapi.client.setToken(token);
+                    if (!accessToken) {
+                        throw new Error('No access token found');
+                    }
+
+                    // Set the token in gapi client
+                    gapi.client.setToken({
+                        access_token: accessToken
+                    });
 
                     // Verify token is valid by making a test request
                     try {
@@ -134,12 +141,12 @@
                         return true;
                     } catch (err) {
                         console.error('Token validation failed:', err);
-                        localStorage.removeItem('gapi_token');
+                        clearStoredToken();
                         return false;
                     }
                 } catch (e) {
                     console.error('Error processing stored token:', e);
-                    localStorage.removeItem('gapi_token');
+                    clearStoredToken();
                 }
             }
             return false;
@@ -147,9 +154,8 @@
 
         // Store token for future use
         function storeToken() {
-            const token = gapi.client.getToken();
-            if (token) {
-                localStorage.setItem('gapi_token', JSON.stringify(token));
+            if (accessToken) {
+                localStorage.setItem('gapi_token', JSON.stringify({ access_token: accessToken }));
             } else {
                 console.log('No token to store');
             }
@@ -158,15 +164,23 @@
         // Clear stored token
         function clearStoredToken() {
             localStorage.removeItem('gapi_token');
+            accessToken = null;
             gapi.client.setToken(null);
         }
 
         // Clear all stored data
         function clearAllData() {
-            localStorage.clear(); // Clear all localStorage data
+            // Clear all localStorage data except client credentials
+            const clientId = localStorage.getItem('client_id');
+            localStorage.clear();
+            if (clientId) {
+                localStorage.setItem('client_id', clientId);
+            }
+
             document.getElementById('spreadsheetUrl').value = '';
             document.getElementById('studentNames').value = '';
             document.getElementById('sheetLink').innerHTML = '';
+            document.getElementById('syncStatus').style.display = 'none';
             updateAttendanceTable();
         }
 
@@ -177,7 +191,6 @@
         async function initializeGapiClient() {
             try {
                 await gapi.client.init({
-                    apiKey: API_KEY,
                     discoveryDocs: [DISCOVERY_DOC],
                 });
                 gapiInited = true;
@@ -193,12 +206,77 @@
             }
         }
 
+        async function handleTokenResponse(tokenResponse) {
+            console.log('Token response:', tokenResponse);
+            try {
+                if (tokenResponse.error !== undefined) {
+                    console.error('Token response error:', tokenResponse.error);
+                    throw {
+                        error: tokenResponse.error,
+                        error_subtype: tokenResponse.error_subtype,
+                        message: 'Authentication error'
+                    };
+                }
+                if (!tokenResponse.access_token) {
+                    console.error('No access token in response');
+                    throw {
+                        error: 'invalid_token',
+                        message: 'No access token received'
+                    };
+                }
+                accessToken = tokenResponse.access_token;
+                console.log('Setting access token:', accessToken);
+                gapi.client.setToken({
+                    access_token: accessToken
+                });
+                storeToken();
+
+                // Update UI after successful authentication
+                document.getElementById('disconnectBtn').style.display = 'inline-block';
+                document.getElementById('disconnectInfo').style.display = 'block';
+
+                try {
+                    // Initialize sheet after authentication
+                    await initializeSheet();
+                } catch (err) {
+                    console.error('Sheet initialization error:', err);
+                    updateUIState('auth_error');
+                    throw err;
+                }
+            } catch (err) {
+                console.error('Token handling error:', err);
+                clearStoredToken();
+
+                // Determine error state
+                let errorState = 'auth_error';
+                if (err.error === 'popup_closed_by_user') {
+                    errorState = 'error_popup_closed';
+                } else if (err.error === 'access_denied') {
+                    errorState = 'error_access_denied';
+                } else if (err.error === 'invalid_token') {
+                    errorState = 'error_invalid_token';
+                } else if (err.error === 'invalid_client') {
+                    errorState = 'error_invalid_client';
+                }
+
+                // Log error details
+                const details = err.error_subtype || err.message;
+                if (details) {
+                    console.error('Error details:', details);
+                }
+
+                updateUIState(errorState, details);
+            } finally {
+                initializationInProgress = false;
+            }
+        }
+
         function gisLoaded() {
             try {
                 tokenClient = google.accounts.oauth2.initTokenClient({
                     client_id: CLIENT_ID,
                     scope: SCOPES,
-                    callback: '', // defined later
+                    callback: handleTokenResponse
                 });
                 gisInited = true;
                 if (gapiInited) { // Only proceed if both APIs are ready
@@ -208,7 +286,6 @@
                 console.error('Error initializing tokenClient:', err);
                 document.getElementById('authStatus').textContent = 'שגיאה באתחול OAuth';
                 document.getElementById('authStatus').style.color = '#f44336';
-                // Clear any stored token as it might be invalid
                 clearStoredToken();
             }
         }
@@ -295,6 +372,10 @@
                 <div id="urlSpinner" class="loading-spinner"></div>
             </div>
             <div id="sheetLink" style="margin-top: 5px;"></div>
+            <div id="syncStatus" style="margin-top: 5px; font-size: 0.9em; display: none;">
+                <span id="syncStatusText"></span>
+                <span id="syncSpinner" class="loading-spinner"></span>
+            </div>
             <div class="setup-instructions" style="font-size: 0.9em; color: #666; margin-top: 5px;">
                 הוראות הגדרה:
                 <ol>
@@ -351,100 +432,57 @@
 
         async function handleAuthClick() {
             if (!gapiInited || !gisInited) {
-                document.getElementById('authStatus').textContent = 'ממתין לאתחול המערכת';
-                document.getElementById('authStatus').style.color = '#ff9800';
+                updateUIState('waiting');
                 return;
             }
 
             if (initializationInProgress) {
-                document.getElementById('authStatus').textContent = 'תהליך התחברות בביצוע';
-                document.getElementById('authStatus').style.color = '#ff9800';
+                updateUIState('initializing');
                 return;
             }
 
             initializationInProgress = true;
+            updateUIState('initializing');
 
             try {
-                tokenClient.callback = async (resp) => {
+                console.log('Requesting access token...');
+                tokenClient.callback = async (response) => {
                     try {
-                        if (resp.error !== undefined) {
-                            console.error('Auth error:', resp);
-                            let errorMessage = 'שגיאה בהתחברות';
-                            let errorDetails = '';
-
-                            // Provide specific error messages for authentication issues
-                            if (resp.error === 'popup_closed_by_user') {
-                                errorMessage = 'החלון נסגר לפני השלמת ההתחברות';
-                            } else if (resp.error === 'access_denied') {
-                                errorMessage = 'ההרשאות לא אושרו';
-                            } else if (resp.error === 'immediate_failed') {
-                                errorMessage = 'נדרשת התחברות מחדש';
-                            } else if (resp.error === 'redirect_uri_mismatch') {
-                                errorMessage = 'שגיאת הגדרות OAuth - URI לא תקין';
-                            }
-
-                            // Add error details
-                            if (resp.error || resp.error_subtype) {
-                                errorDetails = `\n(${resp.error}${resp.error_subtype ? ': ' + resp.error_subtype : ''})`;
-                            }
-
-                            const statusElement = document.getElementById('authStatus');
-                            statusElement.textContent = errorMessage + errorDetails;
-                            statusElement.style.color = '#f44336';
-                            statusElement.style.whiteSpace = 'pre-line';
-                        } else {
-                            // Store and validate token immediately
-                            storeToken();
-
-                            // Verify token works with a test request
-                            try {
-                                await gapi.client.request({
-                                    path: 'https://sheets.googleapis.com/$discovery/rest?version=v4',
-                                });
-
-                                document.getElementById('signInBtn').style.display = 'none';
-                                document.getElementById('signOutBtn').style.display = 'inline-block';
-                                document.getElementById('disconnectBtn').style.display = 'inline-block';
-                                document.getElementById('disconnectInfo').style.display = 'block';
-                                document.getElementById('authStatus').textContent = 'מחובר';
-                                document.getElementById('authStatus').style.color = '#4CAF50';
-                                await initializeSheet();
-                            } catch (validationErr) {
-                                console.error('New token validation failed:', validationErr);
-                                clearStoredToken();
-                                throw new Error('Token validation failed after authentication');
-                            }
-                        }
+                        await handleTokenResponse(response);
+                        updateUIState('connecting');
                     } catch (err) {
-                        console.error('Auth callback error:', err);
-                        clearStoredToken();
-
-                        // Reset UI state
-                        document.getElementById('signInBtn').style.display = 'inline-block';
-                        document.getElementById('signOutBtn').style.display = 'none';
-                        document.getElementById('disconnectBtn').style.display = 'none';
-                        document.getElementById('disconnectInfo').style.display = 'none';
-
-                        // Show specific error message
-                        const errorMessage = err.message === 'Token validation failed after authentication'
-                            ? 'אימות הטוקן נכשל, נא לנסות שוב'
-                            : 'שגיאה בתהליך ההתחברות';
-
-                        document.getElementById('authStatus').textContent = errorMessage;
-                        document.getElementById('authStatus').style.color = '#f44336';
-                    } finally {
+                        console.error('Token response error:', err);
+                        updateUIState('auth_error');
                         initializationInProgress = false;
                     }
                 };
-
-                const token = gapi.client.getToken();
-                tokenClient.requestAccessToken({
-                    prompt: token === null ? 'consent' : ''
-                });
+                tokenClient.requestAccessToken({ prompt: 'consent' });
             } catch (err) {
                 console.error('Auth request error:', err);
-                document.getElementById('authStatus').textContent = 'שגיאה בבקשת ההתחברות';
+                updateUIState('auth_error');
+                initializationInProgress = false;
+
+                // Provide specific error messages for authentication issues
+                if (err.error === 'popup_closed_by_user') {
+                    errorMessage = 'החלון נסגר לפני השלמת ההתחברות';
+                } else if (err.error === 'access_denied') {
+                    errorMessage = 'ההרשאות לא אושרו';
+                } else if (err.error === 'immediate_failed') {
+                    errorMessage = 'נדרשת התחברות מחדש';
+                } else if (err.error === 'redirect_uri_mismatch') {
+                    errorMessage = 'שגיאת הגדרות OAuth - URI לא תקין';
+                }
+
+                // Reset UI state
+                document.getElementById('signInBtn').style.display = 'inline-block';
+                document.getElementById('signOutBtn').style.display = 'none';
+                document.getElementById('disconnectBtn').style.display = 'none';
+                document.getElementById('disconnectInfo').style.display = 'none';
+                document.getElementById('authStatus').textContent = errorMessage;
                 document.getElementById('authStatus').style.color = '#f44336';
+
+                clearStoredToken();
+            } finally {
                 initializationInProgress = false;
             }
         }
@@ -455,16 +493,18 @@
                 try {
                     await google.accounts.oauth2.revoke(token.access_token);
                     clearStoredToken();
-                    document.getElementById('signInBtn').style.display = 'inline-block';
-                    document.getElementById('signOutBtn').style.display = 'none';
-                    document.getElementById('authStatus').textContent = 'מנותק';
-                    document.getElementById('authStatus').style.color = '#666';
+
+                    // Stop sync and clear data
+                    stopSync();
+                    window.currentAttendanceData = null;
+                    clearSyncStatus();
+
+                    updateUIState('disconnected');
                 } catch (err) {
                     console.error('Error revoking token:', err);
                     // Clear token anyway as it might be expired
                     clearStoredToken();
-                    document.getElementById('signInBtn').style.display = 'inline-block';
-                    document.getElementById('signOutBtn').style.display = 'none';
+                    updateUIState('disconnected');
                     document.getElementById('disconnectBtn').style.display = 'none';
                     document.getElementById('disconnectInfo').style.display = 'none';
                     document.getElementById('authStatus').textContent = 'מנותק (שגיאה בביטול ההרשאות)';
@@ -473,7 +513,892 @@
             }
         }
 
+        function getColumnName(columnNumber) {
+            let columnName = '';
+            while (columnNumber >= 0) {
+                columnName = String.fromCharCode(65 + (columnNumber % 26)) + columnName;
+                columnNumber = Math.floor(columnNumber / 26) - 1;
+            }
+            return columnName;
+        }
+
+        function getParashaName(date) {
+            const hebrewDate = new Hebcal.HDate(date);
+            const parasha = hebrewDate.getParsha();
+            return parasha ? parasha.join('-') : '';
+        }
+
+        function getDayOfWeekHebrew(date) {
+            const days = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'שבת'];
+            return days[date.getDay()];
+        }
+
+        async function setupSheetHeaders(spreadsheetId, sheetId, sheetName, year, month) {
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const firstDay = new Date(year, month, 1);
+
+            // Calculate how many columns we need (1 for names + 2 for each day)
+            const totalColumns = 1 + (daysInMonth * 2);
+
+            // Create column headers array
+            const headers = [['שם תלמיד']];
+            const dayHeaders = [['']];
+            const timeHeaders = [['']];
+
+            // Prepare merge requests for day headers
+            const mergeRequests = [];
+
+            // Add headers for each day
+            for (let day = 1; day <= daysInMonth; day++) {
+                const currentDate = new Date(year, month, day);
+                const dayOfWeek = getDayOfWeekHebrew(currentDate);
+                const parasha = currentDate.getDay() === 6 ? getParashaName(currentDate) : '';
+
+                // Add two columns for each day (entry and exit)
+                dayHeaders[0].push(`${day} ${dayOfWeek}`, '');
+                timeHeaders[0].push('כניסה', 'יציאה');
+
+                // Add merge request for day header (spanning two columns)
+                mergeRequests.push({
+                    mergeCells: {
+                        range: {
+                            sheetId: sheetId,
+                            startRowIndex: 0,
+                            endRowIndex: 1,
+                            startColumnIndex: 1 + (day - 1) * 2,
+                            endColumnIndex: 1 + (day - 1) * 2 + 2
+                        },
+                        mergeType: 'MERGE_ALL'
+                    }
+                });
+
+                // If it's Saturday (6), add parasha name as a note
+                if (parasha) {
+                    mergeRequests.push({
+                        updateCells: {
+                            range: {
+                                sheetId: sheetId,
+                                startRowIndex: 0,
+                                endRowIndex: 1,
+                                startColumnIndex: 1 + (day - 1) * 2,
+                                endColumnIndex: 1 + (day - 1) * 2 + 2
+                            },
+                            rows: [{
+                                values: [{
+                                    note: `פרשת ${parasha}`
+                                }]
+                            }],
+                            fields: 'note'
+                        }
+                    });
+                }
+            }
+
+            // Calculate the end column letter
+            const endColumn = getColumnName(totalColumns - 1);
+
+            // Update the sheet with headers
+            await gapi.client.sheets.spreadsheets.values.batchUpdate({
+                spreadsheetId: spreadsheetId,
+                resource: {
+                    valueInputOption: 'RAW',
+                    data: [
+                        {
+                            range: `${sheetName}!A1:${endColumn}1`,
+                            values: dayHeaders
+                        },
+                        {
+                            range: `${sheetName}!A2:${endColumn}2`,
+                            values: timeHeaders
+                        }
+                    ]
+                }
+            });
+
+            // Format headers and apply merging
+            await gapi.client.sheets.spreadsheets.batchUpdate({
+                spreadsheetId: spreadsheetId,
+                resource: {
+                    requests: [
+                        // Merge student name header
+                        {
+                            mergeCells: {
+                                range: {
+                                    sheetId: sheetId,
+                                    startRowIndex: 0,
+                                    endRowIndex: 2,
+                                    startColumnIndex: 0,
+                                    endColumnIndex: 1
+                                },
+                                mergeType: 'MERGE_ALL'
+                            }
+                        },
+                        // Format all headers
+                        {
+                            repeatCell: {
+                                range: {
+                                    sheetId: sheetId,
+                                    startRowIndex: 0,
+                                    endRowIndex: 2,
+                                    startColumnIndex: 0,
+                                    endColumnIndex: totalColumns
+                                },
+                                cell: {
+                                    userEnteredFormat: {
+                                        backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 },
+                                        textFormat: { bold: true },
+                                        horizontalAlignment: 'CENTER',
+                                        verticalAlignment: 'MIDDLE'
+                                    }
+                                },
+                                fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)'
+                            }
+                        },
+                        // Add all day header merges
+                        ...mergeRequests,
+                        // Set column widths
+                        {
+                            updateDimensionProperties: {
+                                range: {
+                                    sheetId: sheetId,
+                                    dimension: 'COLUMNS',
+                                    startIndex: 0,
+                                    endIndex: 1
+                                },
+                                properties: {
+                                    pixelSize: 150 // Width for student names column
+                                },
+                                fields: 'pixelSize'
+                            }
+                        },
+                        {
+                            updateDimensionProperties: {
+                                range: {
+                                    sheetId: sheetId,
+                                    dimension: 'COLUMNS',
+                                    startIndex: 1,
+                                    endIndex: totalColumns
+                                },
+                                properties: {
+                                    pixelSize: 80 // Width for time columns
+                                },
+                                fields: 'pixelSize'
+                            }
+                        }
+                    ]
+                }
+            });
+
+            // Add data validation for time format
+            await gapi.client.sheets.spreadsheets.batchUpdate({
+                spreadsheetId: spreadsheetId,
+                resource: {
+                    requests: [{
+                        setDataValidation: {
+                            range: {
+                                sheetId: sheetId,
+                                startRowIndex: 2,
+                                endRowIndex: 1000,
+                                startColumnIndex: 1,
+                                endColumnIndex: totalColumns
+                            },
+                            rule: {
+                                condition: {
+                                    type: 'CUSTOM_FORMULA',
+                                    values: [{
+                                        userEnteredValue: '=OR(LEN(INDIRECT(ADDRESS(ROW(),COLUMN())))=0, AND(ISNUMBER(TIMEVALUE(INDIRECT(ADDRESS(ROW(),COLUMN())))), REGEXMATCH(INDIRECT(ADDRESS(ROW(),COLUMN())), "^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$")))'
+                                    }]
+                                },
+                                inputMessage: 'הזן זמן בפורמט HH:MM',
+                                strict: false,
+                                showCustomUi: true
+                            }
+                        }
+                    }]
+                }
+            });
+        }
+
+        let syncInterval;
+
+        async function validateAndRefreshToken() {
+            console.log('Validating token...');
+            const token = gapi.client.getToken();
+            if (!token || !token.access_token) {
+                console.log('No valid token found');
+                return false;
+            }
+            console.log('Current token:', token);
+
+            // Check if token is properly set in gapi client
+            if (accessToken !== token.access_token) {
+                console.log('Token mismatch, updating local state');
+                accessToken = token.access_token;
+            }
+
+            try {
+                // Try to validate token with a discovery API request
+                console.log('Making validation request...');
+                await gapi.client.request({
+                    path: 'https://sheets.googleapis.com/$discovery/rest?version=v4',
+                });
+                console.log('Token is valid');
+                return true;
+            } catch (err) {
+                console.log('Token validation error:', err);
+                if (err.status === 401 || err.status === 403) {
+                    console.log('Token expired or invalid, attempting refresh...');
+                    // Token expired or invalid, try to refresh
+                    try {
+                        await new Promise((resolve, reject) => {
+                            tokenClient.callback = async (response) => {
+                                try {
+                                    if (response.error !== undefined) {
+                                        reject(response);
+                                        return;
+                                    }
+                                    accessToken = response.access_token;
+                                    gapi.client.setToken({
+                                        access_token: accessToken
+                                    });
+                                    storeToken();
+                                    resolve(response);
+                                } catch (err) {
+                                    reject(err);
+                                }
+                            };
+                            tokenClient.requestAccessToken({ prompt: '' });
+                        });
+                        console.log('Token refresh successful');
+                        return true;
+                    } catch (refreshErr) {
+                        console.error('Token refresh failed:', refreshErr);
+                        clearStoredToken();
+                        return false;
+                    }
+                }
+                // For other errors (like network issues), consider the token still valid
+                console.log('Non-auth error, considering token still valid');
+                return true;
+            }
+        }
+
+        let syncFailCount = 0;
+        let retryDelay = 0;
+        const MAX_SYNC_FAILS = 3;
+        const MAX_RETRY_DELAY = 30000; // 30 seconds
+
+        // Function to store last sync time
+        function storeLastSyncTime(spreadsheetId) {
+            const now = new Date().toISOString();
+            const syncKey = `lastSyncTime_${spreadsheetId}`;
+            localStorage.setItem(syncKey, now);
+        }
+
+        // Function to get formatted last sync time
+        function getLastSyncTimeDisplay(spreadsheetId) {
+            const syncKey = `lastSyncTime_${spreadsheetId}`;
+            const lastSync = localStorage.getItem(syncKey);
+            if (!lastSync) return '';
+            const lastSyncDate = new Date(lastSync);
+            return lastSyncDate.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Network status handlers
+        function handleOnline() {
+            console.log('Network connection restored');
+            updateSyncStatus('מנסה להתחבר מחדש...');
+            retryDelay = 0; // Reset retry delay when connection is restored
+            const url = document.getElementById('spreadsheetUrl').value.trim();
+            const spreadsheetId = getSpreadsheetIdFromUrl(url);
+            if (spreadsheetId) {
+                performSync(spreadsheetId);
+            }
+        }
+
+        function handleOffline() {
+            console.log('Network connection lost');
+            updateSyncStatus('אין חיבור לאינטרנט', true);
+        }
+
+        // Function to schedule retry
+        function scheduleRetry() {
+            retryDelay = Math.min(retryDelay ? retryDelay * 2 : 5000, MAX_RETRY_DELAY);
+            const remainingAttempts = MAX_SYNC_FAILS - syncFailCount;
+            updateSyncStatus(`מנסה שוב בעוד ${retryDelay/1000} שניות (נותרו ${remainingAttempts} נסיונות)`, true);
+            setTimeout(performSync, retryDelay);
+        }
+
+        // Function to stop sync
+        function stopSync() {
+            if (syncInterval) {
+                clearInterval(syncInterval);
+                syncInterval = null;
+            }
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        }
+
+        // Function to handle sync errors
+        function handleSyncError(err, spreadsheetId = null) {
+            console.error('Sync error:', err);
+            syncFailCount++;
+            console.log(`Sync failed (${syncFailCount}/${MAX_SYNC_FAILS})`);
+
+            // Extract error details
+            const errorBody = err.body ? JSON.parse(err.body) : null;
+            const errorCode = err.status || (errorBody && errorBody.error && errorBody.error.code);
+            const errorText = (errorBody && errorBody.error && errorBody.error.message) || err.message || err.error;
+
+            // If spreadsheetId is not provided, try to get it from the URL
+            if (!spreadsheetId) {
+                const url = document.getElementById('spreadsheetUrl').value.trim();
+                spreadsheetId = getSpreadsheetIdFromUrl(url);
+            }
+
+            if (err.status === 401 || err.status === 403) {
+                updateSyncStatus('שגיאת הרשאות', true);
+                if (syncFailCount >= MAX_SYNC_FAILS) {
+                    stopSync();
+                    updateUIState('error_sync_auth', `נכשלו ${MAX_SYNC_FAILS} נסיונות סנכרון (${errorText})`);
+                } else if (spreadsheetId) {
+                    scheduleRetry(spreadsheetId);
+                }
+            } else if (err.status === 404) {
+                updateSyncStatus('הגיליון לא נמצא', true);
+                stopSync();
+                updateUIState('error_sheet_not_found', errorText);
+            } else if (!navigator.onLine) {
+                updateSyncStatus('אין חיבור לאינטרנט', true);
+                if (spreadsheetId) {
+                    scheduleRetry(spreadsheetId);
+                }
+            } else {
+                updateSyncStatus('שגיאת סנכרון', true);
+                if (syncFailCount >= MAX_SYNC_FAILS) {
+                    stopSync();
+                    updateUIState('error_sync_failed', errorText);
+                } else if (spreadsheetId) {
+                    scheduleRetry(spreadsheetId);
+                }
+            }
+        }
+
+        // Function to perform sync
+        async function performSync(spreadsheetId = null) {
+            if (!await validateBeforeOperation()) {
+                syncFailCount++;
+                console.log(`Sync failed (${syncFailCount}/${MAX_SYNC_FAILS}): Token validation failed`);
+                updateSyncStatus('שגיאת אימות', true);
+                if (syncFailCount >= MAX_SYNC_FAILS) {
+                    stopSync();
+                    updateUIState('error_sync_auth', 'נכשל אימות הרשאות');
+                } else if (spreadsheetId) {
+                    scheduleRetry(spreadsheetId);
+                }
+                return;
+            }
+
+            try {
+                // Get spreadsheet ID if not provided
+                if (!spreadsheetId) {
+                    const url = document.getElementById('spreadsheetUrl').value.trim();
+                    spreadsheetId = getSpreadsheetIdFromUrl(url);
+                    if (!spreadsheetId) return;
+                }
+
+                const month = document.getElementById('monthSelect').value;
+                const year = document.getElementById('yearSelect').value;
+                const sheetName = `${year}.${String(parseInt(month) + 1).padStart(2, '0')}`;
+
+                console.log('Performing sync...');
+                updateSyncStatus('מסנכרן...');
+
+                const response = await gapi.client.sheets.spreadsheets.values.get({
+                    spreadsheetId: spreadsheetId,
+                    range: `${sheetName}!A3:ZZ`,
+                    valueRenderOption: 'UNFORMATTED_VALUE'
+                });
+
+                const values = response.result.values;
+                if (values && values.length > 0) {
+                    console.log('Sync successful, updating data...');
+                    // Update the local data
+                    window.currentAttendanceData = values.map(row => ({
+                        name: row[0],
+                        attendance: Array.from({ length: Math.floor((row.length - 1) / 2) }, (_, i) => ({
+                            entry: row[1 + i * 2] || '',
+                            exit: row[2 + i * 2] || ''
+                        }))
+                    }));
+
+                    // Update the UI if needed
+                    createStudentRows();
+                    syncFailCount = 0; // Reset fail counter on success
+                    retryDelay = 0; // Reset retry delay on success
+                    updateSyncStatus('סונכרן בהצלחה');
+                    storeLastSyncTime(spreadsheetId);
+                } else {
+                    console.log('Sync successful, no data found');
+                    updateSyncStatus('אין נתונים בגיליון');
+                }
+            } catch (err) {
+                handleSyncError(err, spreadsheetId);
+            }
+        }
+
+        async function initializeSync() {
+            // Get current spreadsheet info
+            const url = document.getElementById('spreadsheetUrl').value.trim();
+            const spreadsheetId = getSpreadsheetIdFromUrl(url);
+            if (!spreadsheetId) {
+                console.log('No valid spreadsheet ID found');
+                return;
+            }
+
+            console.log('Initializing sync for spreadsheet:', spreadsheetId);
+
+            // Reset counters
+            syncFailCount = 0;
+            retryDelay = 0;
+
+            // Stop any existing sync
+            stopSync();
+
+            // Add network status monitoring
+            window.addEventListener('online', handleOnline);
+            window.addEventListener('offline', handleOffline);
+
+            try {
+                // Perform initial sync
+                await performSync(spreadsheetId);
+
+                // Start periodic sync if initial sync was successful
+                if (syncFailCount === 0) {
+                    console.log('Starting periodic sync...');
+                    syncInterval = setInterval(() => performSync(spreadsheetId), 30000);
+                }
+            } catch (err) {
+                console.error('Initial sync failed:', err);
+                handleSyncError(err, spreadsheetId);
+            }
+        }
+
+        // Function to perform sync
+        async function performSync(spreadsheetId = null) {
+            if (!await validateBeforeOperation()) {
+                syncFailCount++;
+                console.log(`Sync failed (${syncFailCount}/${MAX_SYNC_FAILS}): Token validation failed`);
+                updateSyncStatus('שגיאת אימות', true);
+                if (syncFailCount >= MAX_SYNC_FAILS) {
+                    stopSync();
+                    updateUIState('error_sync_auth', 'נכשל אימות הרשאות');
+                } else {
+                    scheduleRetry(spreadsheetId);
+                }
+                return;
+            }
+
+            try {
+                // Get spreadsheet ID if not provided
+                if (!spreadsheetId) {
+                    const url = document.getElementById('spreadsheetUrl').value.trim();
+                    spreadsheetId = getSpreadsheetIdFromUrl(url);
+                    if (!spreadsheetId) return;
+                }
+
+                const month = document.getElementById('monthSelect').value;
+                const year = document.getElementById('yearSelect').value;
+                const sheetName = `${year}.${String(parseInt(month) + 1).padStart(2, '0')}`;
+
+                console.log('Performing sync...');
+                updateSyncStatus('מסנכרן...');
+
+                const response = await gapi.client.sheets.spreadsheets.values.get({
+                    spreadsheetId: spreadsheetId,
+                    range: `${sheetName}!A3:ZZ`,
+                    valueRenderOption: 'UNFORMATTED_VALUE'
+                });
+
+                const values = response.result.values;
+                if (values && values.length > 0) {
+                    console.log('Sync successful, updating data...');
+                    // Update the local data
+                    window.currentAttendanceData = values.map(row => ({
+                        name: row[0],
+                        attendance: Array.from({ length: Math.floor((row.length - 1) / 2) }, (_, i) => ({
+                            entry: row[1 + i * 2] || '',
+                            exit: row[2 + i * 2] || ''
+                        }))
+                    }));
+
+                    // Update the UI if needed
+                    createStudentRows();
+                    syncFailCount = 0; // Reset fail counter on success
+                    retryDelay = 0; // Reset retry delay on success
+                    updateSyncStatus('סונכרן בהצלחה');
+                    storeLastSyncTime(spreadsheetId);
+                } else {
+                    console.log('Sync successful, no data found');
+                    updateSyncStatus('אין נתונים בגיליון');
+                }
+            } catch (err) {
+                handleSyncError(err);
+            }
+        }
+
+        // Function to handle sync errors
+        function handleSyncError(err) {
+            console.error('Sync error:', err);
+            syncFailCount++;
+            console.log(`Sync failed (${syncFailCount}/${MAX_SYNC_FAILS})`);
+
+            // Extract error details
+            const errorBody = err.body ? JSON.parse(err.body) : null;
+            const errorCode = err.status || (errorBody && errorBody.error && errorBody.error.code);
+            const errorText = (errorBody && errorBody.error && errorBody.error.message) || err.message || err.error;
+
+            if (err.status === 401 || err.status === 403) {
+                updateSyncStatus('שגיאת הרשאות', true);
+                if (syncFailCount >= MAX_SYNC_FAILS) {
+                    stopSync();
+                    updateUIState('error_sync_auth', `נכשלו ${MAX_SYNC_FAILS} נסיונות סנכרון (${errorText})`);
+                }
+            } else if (err.status === 404) {
+                updateSyncStatus('הגיליון לא נמצא', true);
+                stopSync();
+                updateUIState('error_sheet_not_found', errorText);
+            } else if (!navigator.onLine) {
+                updateSyncStatus('אין חיבור לאינטרנט', true);
+                scheduleRetry();
+            } else {
+                updateSyncStatus('שגיאת סנכרון', true);
+                if (syncFailCount >= MAX_SYNC_FAILS) {
+                    stopSync();
+                    updateUIState('error_sync_failed', errorText);
+                } else {
+                    scheduleRetry();
+                }
+            }
+        }
+
+        // Function to schedule retry
+        function scheduleRetry() {
+            retryDelay = Math.min(retryDelay ? retryDelay * 2 : 5000, MAX_RETRY_DELAY);
+            const remainingAttempts = MAX_SYNC_FAILS - syncFailCount;
+            updateSyncStatus(`מנסה שוב בעוד ${retryDelay/1000} שניות (נותרו ${remainingAttempts} נסיונות)`, true);
+            setTimeout(performSync, retryDelay);
+        }
+
+        // Function to stop sync
+        function stopSync() {
+            if (syncInterval) {
+                clearInterval(syncInterval);
+                syncInterval = null;
+            }
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        }
+
+        // Network status handlers
+        function handleOnline() {
+            console.log('Network connection restored');
+            updateSyncStatus('מנסה להתחבר מחדש...');
+            retryDelay = 0; // Reset retry delay when connection is restored
+            performSync();
+        }
+
+        function handleOffline() {
+            console.log('Network connection lost');
+            updateSyncStatus('אין חיבור לאינטרנט', true);
+        }
+
+        // Function to handle sync errors
+        function handleSyncError(err) {
+            console.error('Sync error:', err);
+            syncFailCount++;
+            console.log(`Sync failed (${syncFailCount}/${MAX_SYNC_FAILS})`);
+
+            // Extract error details
+            const errorBody = err.body ? JSON.parse(err.body) : null;
+            const errorCode = err.status || (errorBody && errorBody.error && errorBody.error.code);
+            const errorText = (errorBody && errorBody.error && errorBody.error.message) || err.message || err.error;
+
+            if (err.status === 401 || err.status === 403) {
+                updateSyncStatus('שגיאת הרשאות', true);
+                if (syncFailCount >= MAX_SYNC_FAILS) {
+                    stopSync();
+                    updateUIState('error_sync_auth', `נכשלו ${MAX_SYNC_FAILS} נסיונות סנכרון (${errorText})`);
+                }
+            } else if (err.status === 404) {
+                updateSyncStatus('הגיליון לא נמצא', true);
+                stopSync();
+                updateUIState('error_sheet_not_found', errorText);
+            } else if (!navigator.onLine) {
+                updateSyncStatus('אין חיבור לאינטרנט', true);
+                scheduleRetry();
+            } else {
+                updateSyncStatus('שגיאת סנכרון', true);
+                if (syncFailCount >= MAX_SYNC_FAILS) {
+                    stopSync();
+                    updateUIState('error_sync_failed', errorText);
+                } else {
+                    scheduleRetry();
+                }
+            }
+        }
+
+        // Function to stop sync
+        function stopSync() {
+            if (syncInterval) {
+                clearInterval(syncInterval);
+                syncInterval = null;
+            }
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        }
+
+        // Network status handlers
+        function handleOnline() {
+            console.log('Network connection restored');
+            updateSyncStatus('מנסה להתחבר מחדש...');
+            retryDelay = 0; // Reset retry delay when connection is restored
+            performSync();
+        }
+
+        function handleOffline() {
+            console.log('Network connection lost');
+            updateSyncStatus('אין חיבור לאינטרנט', true);
+        }
+
+        // Function to clear sync status
+        function clearSyncStatus(spreadsheetId) {
+            const syncKey = `lastSyncTime_${spreadsheetId}`;
+            localStorage.removeItem(syncKey);
+            document.getElementById('syncStatus').style.display = 'none';
+        }
+
+        // Function to update sync status
+        function updateSyncStatus(status, isError = false) {
+            const statusElement = document.getElementById('syncStatus');
+            const statusText = document.getElementById('syncStatusText');
+            const spinner = document.getElementById('syncSpinner');
+
+            statusElement.style.display = 'block';
+            let displayText = status;
+            if (status === 'סונכרן בהצלחה') {
+                const timeStr = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                displayText = `${status} (${timeStr})`;
+                const url = document.getElementById('spreadsheetUrl').value.trim();
+                const spreadsheetId = getSpreadsheetIdFromUrl(url);
+                if (spreadsheetId) {
+                    storeLastSyncTime(spreadsheetId);
+                }
+            } else if (status === 'מסנכרן...') {
+                const url = document.getElementById('spreadsheetUrl').value.trim();
+                const spreadsheetId = getSpreadsheetIdFromUrl(url);
+                if (spreadsheetId) {
+                    const lastSyncTime = getLastSyncTimeDisplay(spreadsheetId);
+                    if (lastSyncTime) {
+                        displayText = `${status} (סנכרון אחרון: ${lastSyncTime})`;
+                    }
+                }
+            }
+            statusText.textContent = displayText;
+            statusText.style.color = isError ? '#f44336' : '#4CAF50';
+            spinner.style.display = status === 'מסנכרן...' ? 'inline-block' : 'none';
+        }
+
+        // Function to schedule retry
+        function scheduleRetry(spreadsheetId = null) {
+            retryDelay = Math.min(retryDelay ? retryDelay * 2 : 5000, MAX_RETRY_DELAY);
+            const remainingAttempts = MAX_SYNC_FAILS - syncFailCount;
+            updateSyncStatus(`מנסה שוב בעוד ${retryDelay/1000} שניות (נותרו ${remainingAttempts} נסיונות)`, true);
+            setTimeout(() => performSync(spreadsheetId), retryDelay);
+        }
+
+        async function startPeriodicSync() {
+            const url = document.getElementById('spreadsheetUrl').value.trim();
+            const spreadsheetId = getSpreadsheetIdFromUrl(url);
+            if (!spreadsheetId) return;
+
+            // Reset counters
+            syncFailCount = 0;
+            retryDelay = 0;
+
+            // Stop any existing sync
+            stopSync();
+
+            // Add network status monitoring
+            window.addEventListener('online', handleOnline);
+            window.addEventListener('offline', handleOffline);
+
+            try {
+                // Perform initial sync
+                await performSync(spreadsheetId);
+
+                // Start periodic sync if initial sync was successful
+                if (syncFailCount === 0) {
+                    console.log('Starting periodic sync...');
+                    syncInterval = setInterval(() => performSync(spreadsheetId), 30000);
+                }
+            } catch (err) {
+                console.error('Initial sync failed:', err);
+                handleSyncError(err);
+            }
+        }
+
+        function updateUIState(state, details = '') {
+            const states = {
+                'disconnected': {
+                    authText: 'מנותק',
+                    authColor: '#666',
+                    showSignIn: true,
+                    showSignOut: false,
+                    showSync: false
+                },
+                'auth_error': {
+                    authText: 'נדרשת התחברות מחדש',
+                    authColor: '#f44336',
+                    showSignIn: true,
+                    showSignOut: false,
+                    showSync: false
+                },
+                'connected': {
+                    authText: 'מחובר',
+                    authColor: '#4CAF50',
+                    showSignIn: false,
+                    showSignOut: true,
+                    showSync: true
+                },
+                'initializing': {
+                    authText: 'מתחבר...',
+                    authColor: '#ff9800',
+                    showSignIn: false,
+                    showSignOut: false,
+                    showSync: false
+                },
+                'waiting': {
+                    authText: 'ממתין לאתחול המערכת',
+                    authColor: '#ff9800',
+                    showSignIn: true,
+                    showSignOut: false,
+                    showSync: false
+                },
+                'connecting': {
+                    authText: 'מתחבר לגיליון...',
+                    authColor: '#ff9800',
+                    showSignIn: false,
+                    showSignOut: false,
+                    showSync: false
+                },
+                'error_popup_closed': {
+                    authText: 'החלון נסגר לפני השלמת ההתחברות',
+                    authColor: '#f44336',
+                    showSignIn: true,
+                    showSignOut: false,
+                    showSync: false
+                },
+                'error_access_denied': {
+                    authText: 'ההרשאות לא אושרו',
+                    authColor: '#f44336',
+                    showSignIn: true,
+                    showSignOut: false,
+                    showSync: false
+                },
+                'error_invalid_token': {
+                    authText: 'שגיאה באימות הטוקן',
+                    authColor: '#f44336',
+                    showSignIn: true,
+                    showSignOut: false,
+                    showSync: false
+                },
+                'error_invalid_client': {
+                    authText: 'שגיאה בהגדרות OAuth',
+                    authColor: '#f44336',
+                    showSignIn: true,
+                    showSignOut: false,
+                    showSync: false
+                },
+                'error_sheet_not_found': {
+                    authText: 'הגיליון לא נמצא',
+                    authColor: '#f44336',
+                    showSignIn: true,
+                    showSignOut: false,
+                    showSync: false
+                },
+                'error_sheet_permission': {
+                    authText: 'אין הרשאות גישה לגיליון',
+                    authColor: '#f44336',
+                    showSignIn: true,
+                    showSignOut: false,
+                    showSync: false
+                },
+                'error_sheet_connection': {
+                    authText: 'שגיאה בהתחברות לגיליון',
+                    authColor: '#f44336',
+                    showSignIn: true,
+                    showSignOut: false,
+                    showSync: false
+                },
+                'error_sync_failed': {
+                    authText: 'נכשל סנכרון אוטומטי',
+                    authColor: '#f44336',
+                    showSignIn: true,
+                    showSignOut: false,
+                    showSync: false
+                },
+                'error_sync_auth': {
+                    authText: 'נותק מהגיליון - נדרשת התחברות מחדש',
+                    authColor: '#f44336',
+                    showSignIn: true,
+                    showSignOut: false,
+                    showSync: false
+                }
+            };
+
+            const config = states[state];
+            if (!config) return;
+
+            const statusElement = document.getElementById('authStatus');
+            statusElement.textContent = details ? `${config.authText} (${details})` : config.authText;
+            statusElement.style.color = config.authColor;
+            statusElement.style.whiteSpace = details ? 'pre-line' : 'normal';
+
+            document.getElementById('signInBtn').style.display = config.showSignIn ? 'inline-block' : 'none';
+            document.getElementById('signOutBtn').style.display = config.showSignOut ? 'inline-block' : 'none';
+            if (!config.showSync) {
+                document.getElementById('syncStatus').style.display = 'none';
+            }
+        }
+
+        async function validateBeforeOperation() {
+            if (!accessToken || !gapi.client.getToken()) {
+                console.log('No active token found');
+                updateUIState('auth_error');
+                return false;
+            }
+
+            try {
+                const isValid = await validateAndRefreshToken();
+                if (!isValid) {
+                    updateUIState('auth_error');
+                    return false;
+                }
+                return true;
+            } catch (err) {
+                console.error('Validation failed:', err);
+                updateUIState('auth_error');
+                return false;
+            }
+        }
+
         async function initializeSheet() {
+            // Validate token before proceeding
+            if (!await validateBeforeOperation()) {
+                return;
+            }
+
             const url = document.getElementById('spreadsheetUrl').value.trim();
             if (!url) {
                 document.getElementById('authStatus').textContent = 'נא להזין כתובת גיליון';
@@ -501,9 +1426,11 @@
                 const sheets = response.result.sheets;
                 const sheetExists = sheets.some(sheet => sheet.properties.title === sheetName);
 
+                let sheetId;
+
                 if (!sheetExists) {
                     // Create new sheet for the month
-                    await gapi.client.sheets.spreadsheets.batchUpdate({
+                    const response = await gapi.client.sheets.spreadsheets.batchUpdate({
                         spreadsheetId: spreadsheetId,
                         resource: {
                             requests: [{
@@ -515,58 +1442,107 @@
                             }]
                         }
                     });
+
+                    // Get the new sheet ID
+                    sheetId = response.result.replies[0].addSheet.properties.sheetId;
+
+                    // Set up headers for the new sheet
+                    await setupSheetHeaders(spreadsheetId, sheetId, sheetName, parseInt(year), parseInt(month));
+                } else {
+                    // Find existing sheet ID
+                    sheetId = sheets.find(sheet => sheet.properties.title === sheetName).properties.sheetId;
                 }
 
                 // Load student data from the sheet
                 await loadStudentsFromSheet(spreadsheetId, sheetName);
-                document.getElementById('authStatus').textContent = 'מחובר לגיליון';
-                document.getElementById('authStatus').style.color = '#4CAF50';
+                updateUIState('connected');
+
+                // Start periodic sync with initial status
+                await initializeSync();
+
+                // Show initial sync status
+                const lastSyncTime = getLastSyncTimeDisplay();
+                if (lastSyncTime) {
+                    updateSyncStatus(`טוען נתונים (סנכרון אחרון: ${lastSyncTime})`);
+                } else {
+                    updateSyncStatus('טוען נתונים בפעם הראשונה...');
+                }
             } catch (err) {
                 console.error('Error:', err);
-                let errorMessage = 'שגיאה בהתחברות לגיליון';
-                let errorDetails = '';
 
                 // Extract error details
                 const errorBody = err.body ? JSON.parse(err.body) : null;
                 const errorCode = err.status || (errorBody && errorBody.error && errorBody.error.code);
                 const errorText = (errorBody && errorBody.error && errorBody.error.message) || err.message || err.error;
 
-                // Provide specific error messages
+                // Log error details
+                console.error('Error details:', { errorCode, errorText });
+
+                // Determine error state and details
+                let errorState = 'error_sheet_connection';
+                let errorDetails = errorText;
+
                 if (err.status === 403) {
-                    errorMessage = 'אין הרשאות מתאימות לגיליון';
+                    errorState = 'error_sheet_permission';
                 } else if (err.status === 404) {
-                    errorMessage = 'הגיליון לא נמצא';
-                } else if (err.error === 'redirect_uri_mismatch') {
-                    errorMessage = 'שגיאת הגדרות OAuth - URI לא תקין';
-                } else if (err.error === 'invalid_client') {
-                    errorMessage = 'שגיאת הגדרות OAuth - מזהה לקוח לא תקין';
-                } else if (err.error === 'unauthorized_client') {
-                    errorMessage = 'המשתמש לא מורשה להשתמש באפליקציה';
+                    errorState = 'error_sheet_not_found';
+                } else if (err.error === 'redirect_uri_mismatch' || err.error === 'invalid_client' || err.error === 'unauthorized_client') {
+                    errorState = 'error_invalid_client';
                 }
 
-                // Add error details if available
-                if (errorCode || errorText) {
-                    errorDetails = `\n(${errorCode || 'Error'}: ${errorText || 'Unknown error'})`;
-                }
-
-                const statusElement = document.getElementById('authStatus');
-                statusElement.textContent = errorMessage + errorDetails;
-                statusElement.style.color = '#f44336';
-                statusElement.style.whiteSpace = 'pre-line';
+                updateUIState(errorState, errorDetails);
             }
         }
 
         async function loadStudentsFromSheet(spreadsheetId, sheetName) {
             try {
+                // Validate token before proceeding
+                if (!await validateBeforeOperation()) {
+                    return;
+                }
+
+                // Calculate the range based on days in month
+                const month = document.getElementById('monthSelect').value;
+                const year = document.getElementById('yearSelect').value;
+                const daysInMonth = new Date(year, parseInt(month) + 1, 0).getDate();
+
+                // Calculate end column letter
+                const endColumn = getColumnName(daysInMonth * 2);
+
+                // Get all data from the sheet (excluding headers)
                 const response = await gapi.client.sheets.spreadsheets.values.get({
                     spreadsheetId: spreadsheetId,
-                    range: `${sheetName}!A:A`
+                    range: `${sheetName}!A3:${endColumn}`
                 });
 
                 const values = response.result.values;
                 if (values && values.length > 0) {
-                    const studentNames = values.map(row => row[0]).join('\n');
+                    // Extract student names from first column
+                    const studentNames = values.map(row => row[0]).filter(name => name).join('\n');
                     document.getElementById('studentNames').value = studentNames;
+
+                    // Store the attendance data for each student
+                    const attendanceData = values.map(row => {
+                        const studentData = {
+                            name: row[0],
+                            attendance: []
+                        };
+
+                        // Each day has two columns (entry and exit)
+                        for (let i = 1; i < row.length; i += 2) {
+                            studentData.attendance.push({
+                                entry: row[i] || '',
+                                exit: row[i + 1] || ''
+                            });
+                        }
+
+                        return studentData;
+                    });
+
+                    // Store the attendance data in the page for later use
+                    window.currentAttendanceData = attendanceData;
+
+                    // Update the UI with the loaded data
                     createStudentRows();
                 }
             } catch (err) {
@@ -600,6 +1576,11 @@
         }
 
         async function saveStudentsToSheet() {
+            // Validate token before proceeding
+            if (!await validateBeforeOperation()) {
+                return;
+            }
+
             const url = document.getElementById('spreadsheetUrl').value.trim();
             const spreadsheetId = getSpreadsheetIdFromUrl(url);
             if (!spreadsheetId) {
@@ -612,16 +1593,55 @@
             const year = document.getElementById('yearSelect').value;
             const sheetName = `${year}.${String(parseInt(month) + 1).padStart(2, '0')}`;
 
-            const studentNames = document.getElementById('studentNames').value.split('\n').filter(name => name.trim());
-            const values = studentNames.map(name => [name.trim()]);
-
             try {
+                // Get current attendance data or create new data structure
+                const attendanceData = window.currentAttendanceData || [];
+                const studentNames = document.getElementById('studentNames').value
+                    .split('\n')
+                    .filter(name => name.trim());
+
+                // Calculate the number of days in the month
+                const daysInMonth = new Date(year, parseInt(month) + 1, 0).getDate();
+
+                // Create values array with student names and attendance data
+                const values = studentNames.map(name => {
+                    // Find existing data for this student
+                    const existingData = attendanceData.find(data => data.name === name);
+
+                    // Initialize row with student name
+                    const row = [name];
+
+                    // Add attendance data for each day (two columns per day)
+                    for (let day = 0; day < daysInMonth; day++) {
+                        const dayData = existingData && existingData.attendance[day] || { entry: '', exit: '' };
+                        row.push(dayData.entry, dayData.exit);
+                    }
+
+                    return row;
+                });
+
+                // Calculate the end column letter
+                const endColumn = getColumnName(daysInMonth * 2);
+
+                // Update the entire data range
                 await gapi.client.sheets.spreadsheets.values.update({
                     spreadsheetId: spreadsheetId,
-                    range: `${sheetName}!A1:A${values.length}`,
+                    range: `${sheetName}!A3:${endColumn}${2 + values.length}`,
                     valueInputOption: 'RAW',
-                    resource: { values }
+                    resource: {
+                        values: values
+                    }
                 });
+
+                // Store the updated data
+                window.currentAttendanceData = values.map(row => ({
+                    name: row[0],
+                    attendance: Array.from({ length: daysInMonth }, (_, i) => ({
+                        entry: row[1 + i * 2] || '',
+                        exit: row[2 + i * 2] || ''
+                    }))
+                }));
+
                 document.getElementById('authStatus').textContent = 'הנתונים נשמרו בהצלחה';
                 document.getElementById('authStatus').style.color = '#4CAF50';
             } catch (err) {
@@ -659,12 +1679,20 @@
         let spreadsheetChangeTimeout;
 
         function handleSpreadsheetChange() {
-            // Clear previous timeout
+            // Clear previous timeout and sync
             if (spreadsheetChangeTimeout) {
                 clearTimeout(spreadsheetChangeTimeout);
             }
 
+            // Stop sync and clear data
+            stopSync();
+            window.currentAttendanceData = null;
             const url = document.getElementById('spreadsheetUrl').value.trim();
+            const spreadsheetId = getSpreadsheetIdFromUrl(url);
+            if (spreadsheetId) {
+                clearSyncStatus(spreadsheetId);
+            }
+
             const statusElement = document.getElementById('authStatus');
 
             if (!url) {
@@ -704,6 +1732,7 @@
                         statusElement.style.color = '#4CAF50';
                         document.getElementById('urlSpinner').style.display = 'none';
                         await initializeSheet();
+                        await initializeSync();
                     } else {
                         // Save URL but indicate that auth is needed
                         localStorage.setItem('spreadsheetUrl', url);
@@ -727,10 +1756,19 @@
             const url = document.getElementById('spreadsheetUrl').value.trim();
             const spreadsheetId = getSpreadsheetIdFromUrl(url);
 
+            // Clear existing sync
+            if (syncInterval) {
+                clearInterval(syncInterval);
+                syncInterval = null;
+            }
+
+            // Clear stored data
+            window.currentAttendanceData = null;
+
             try {
                 container.classList.add('loading');
                 if (spreadsheetId && gapi.client && gapi.client.getToken()) {
-                    await initializeSheet();
+                    await initializeSheet(); // This will start a new sync
                 } else {
                     updateAttendanceTable();
                     createStudentRows();
@@ -806,10 +1844,10 @@
         }
 
         window.onload = function() {
-            // Check API credentials
-            if (CLIENT_ID === 'YOUR_CLIENT_ID.apps.googleusercontent.com' || API_KEY === 'YOUR_API_KEY') {
-                console.warn('Warning: Google API credentials are not set. Please replace YOUR_CLIENT_ID and YOUR_API_KEY with actual credentials.');
-                document.getElementById('authStatus').textContent = 'אנא הגדר את פרטי ההתחברות ל-Google API';
+            // Check OAuth client ID
+            if (CLIENT_ID === 'YOUR_CLIENT_ID.apps.googleusercontent.com') {
+                console.warn('Warning: Google OAuth client ID is not set. Please replace YOUR_CLIENT_ID with your actual client ID.');
+                document.getElementById('authStatus').textContent = 'אנא הגדר את מזהה לקוח OAuth';
                 document.getElementById('authStatus').style.color = '#ff9800';
             }
 
@@ -818,12 +1856,15 @@
             document.getElementById('signOutBtn').addEventListener('click', handleSignoutClick);
             document.getElementById('disconnectBtn').addEventListener('click', async () => {
                 if (confirm('האם אתה בטוח שברצונך לנתק את האפליקציה לצמיתות? פעולה זו תמחק את כל הנתונים המקומיים.')) {
+                    if (syncInterval) {
+                        clearInterval(syncInterval);
+                        syncInterval = null;
+                    }
                     await handleSignoutClick();
                     clearAllData();
+                    updateUIState('disconnected');
                     document.getElementById('disconnectBtn').style.display = 'none';
                     document.getElementById('disconnectInfo').style.display = 'none';
-                    document.getElementById('authStatus').textContent = 'האפליקציה נותקה לצמיתות';
-                    document.getElementById('authStatus').style.color = '#f44336';
                 }
             });
 
