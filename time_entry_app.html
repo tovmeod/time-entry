@@ -513,6 +513,20 @@
             }
         }
 
+        function calculateWorkingDaysInMonth(year, month) {
+            let workingDays = 0;
+            const daysInMonth = new Date(year, parseInt(month) + 1, 0).getDate();
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month, day);
+                const dayOfWeek = date.getDay();
+                if (dayOfWeek <= 4) { // Sunday (0) through Thursday (4)
+                    workingDays++;
+                }
+            }
+            return workingDays;
+        }
+
         function getColumnName(columnNumber) {
             let columnName = '';
             while (columnNumber >= 0) {
@@ -537,9 +551,6 @@
             const daysInMonth = new Date(year, month + 1, 0).getDate();
             const firstDay = new Date(year, month, 1);
 
-            // Calculate how many columns we need (1 for names + 2 for each day)
-            const totalColumns = 1 + (daysInMonth * 2);
-
             // Create column headers array
             const headers = [['שם תלמיד']];
             const dayHeaders = [['']];
@@ -548,11 +559,23 @@
             // Prepare merge requests for day headers
             const mergeRequests = [];
 
+            // Keep track of the actual column index (for days that are included)
+            let columnIndex = 1;
+
+            // Calculate total columns based on working days
+            const workingDays = calculateWorkingDaysInMonth(year, month);
+            const totalColumns = 1 + (workingDays * 2);
+
             // Add headers for each day
             for (let day = 1; day <= daysInMonth; day++) {
                 const currentDate = new Date(year, month, day);
+                const dayOfWeekNum = currentDate.getDay();
+
+                // Skip if not Sunday (0) through Thursday (4)
+                if (dayOfWeekNum > 4) continue;
+
                 const dayOfWeek = getDayOfWeekHebrew(currentDate);
-                const parasha = currentDate.getDay() === 6 ? getParashaName(currentDate) : '';
+                const parasha = '';
 
                 // Add two columns for each day (entry and exit)
                 dayHeaders[0].push(`${day} ${dayOfWeek}`, '');
@@ -565,37 +588,17 @@
                             sheetId: sheetId,
                             startRowIndex: 0,
                             endRowIndex: 1,
-                            startColumnIndex: 1 + (day - 1) * 2,
-                            endColumnIndex: 1 + (day - 1) * 2 + 2
+                            startColumnIndex: columnIndex,
+                            endColumnIndex: columnIndex + 2
                         },
                         mergeType: 'MERGE_ALL'
                     }
                 });
-
-                // If it's Saturday (6), add parasha name as a note
-                if (parasha) {
-                    mergeRequests.push({
-                        updateCells: {
-                            range: {
-                                sheetId: sheetId,
-                                startRowIndex: 0,
-                                endRowIndex: 1,
-                                startColumnIndex: 1 + (day - 1) * 2,
-                                endColumnIndex: 1 + (day - 1) * 2 + 2
-                            },
-                            rows: [{
-                                values: [{
-                                    note: `פרשת ${parasha}`
-                                }]
-                            }],
-                            fields: 'note'
-                        }
-                    });
-                }
+                columnIndex += 2;
             }
 
-            // Calculate the end column letter
-            const endColumn = getColumnName(totalColumns - 1);
+            // Calculate the end column letter based on actual number of columns used
+            const endColumn = getColumnName(columnIndex - 1);
 
             // Update the sheet with headers
             await gapi.client.sheets.spreadsheets.values.batchUpdate({
@@ -641,7 +644,7 @@
                                     startRowIndex: 0,
                                     endRowIndex: 2,
                                     startColumnIndex: 0,
-                                    endColumnIndex: totalColumns
+                                    endColumnIndex: columnIndex
                                 },
                                 cell: {
                                     userEnteredFormat: {
@@ -677,7 +680,7 @@
                                     sheetId: sheetId,
                                     dimension: 'COLUMNS',
                                     startIndex: 1,
-                                    endIndex: totalColumns
+                                    endIndex: columnIndex
                                 },
                                 properties: {
                                     pixelSize: 80 // Width for time columns
@@ -700,7 +703,7 @@
                                 startRowIndex: 2,
                                 endRowIndex: 1000,
                                 startColumnIndex: 1,
-                                endColumnIndex: totalColumns
+                                endColumnIndex: columnIndex
                             },
                             rule: {
                                 condition: {
@@ -728,7 +731,6 @@
                 console.log('No valid token found');
                 return false;
             }
-            console.log('Current token:', token);
 
             // Check if token is properly set in gapi client
             if (accessToken !== token.access_token) {
@@ -738,11 +740,9 @@
 
             try {
                 // Try to validate token with a discovery API request
-                console.log('Making validation request...');
                 await gapi.client.request({
                     path: 'https://sheets.googleapis.com/$discovery/rest?version=v4',
                 });
-                console.log('Token is valid');
                 return true;
             } catch (err) {
                 console.log('Token validation error:', err);
@@ -1501,13 +1501,13 @@
                     return;
                 }
 
-                // Calculate the range based on days in month
+                // Calculate the range based on working days in month
                 const month = document.getElementById('monthSelect').value;
                 const year = document.getElementById('yearSelect').value;
-                const daysInMonth = new Date(year, parseInt(month) + 1, 0).getDate();
+                const workingDays = calculateWorkingDaysInMonth(parseInt(year), parseInt(month));
 
-                // Calculate end column letter
-                const endColumn = getColumnName(daysInMonth * 2);
+                // Calculate end column letter (2 columns per working day + 1 for names)
+                const endColumn = getColumnName(workingDays * 2);
 
                 // Get all data from the sheet (excluding headers)
                 const response = await gapi.client.sheets.spreadsheets.values.get({
@@ -1600,8 +1600,8 @@
                     .split('\n')
                     .filter(name => name.trim());
 
-                // Calculate the number of days in the month
-                const daysInMonth = new Date(year, parseInt(month) + 1, 0).getDate();
+                // Calculate working days in the month
+                const workingDays = calculateWorkingDaysInMonth(parseInt(year), parseInt(month));
 
                 // Create values array with student names and attendance data
                 const values = studentNames.map(name => {
@@ -1611,17 +1611,26 @@
                     // Initialize row with student name
                     const row = [name];
 
-                    // Add attendance data for each day (two columns per day)
+                    // Add attendance data for working days only
+                    let workingDayIndex = 0;
+                    const daysInMonth = new Date(year, parseInt(month) + 1, 0).getDate();
+
                     for (let day = 0; day < daysInMonth; day++) {
-                        const dayData = existingData && existingData.attendance[day] || { entry: '', exit: '' };
-                        row.push(dayData.entry, dayData.exit);
+                        const date = new Date(parseInt(year), parseInt(month), day + 1);
+                        const dayOfWeek = date.getDay();
+
+                        if (dayOfWeek <= 4) { // Sunday (0) through Thursday (4)
+                            const dayData = existingData && existingData.attendance[workingDayIndex] || { entry: '', exit: '' };
+                            row.push(dayData.entry, dayData.exit);
+                            workingDayIndex++;
+                        }
                     }
 
                     return row;
                 });
 
-                // Calculate the end column letter
-                const endColumn = getColumnName(daysInMonth * 2);
+                // Calculate the end column letter based on working days
+                const endColumn = getColumnName(workingDays * 2);
 
                 // Update the entire data range
                 await gapi.client.sheets.spreadsheets.values.update({
@@ -1636,7 +1645,7 @@
                 // Store the updated data
                 window.currentAttendanceData = values.map(row => ({
                     name: row[0],
-                    attendance: Array.from({ length: daysInMonth }, (_, i) => ({
+                    attendance: Array.from({ length: calculateWorkingDaysInMonth(parseInt(year), parseInt(month)) }, (_, i) => ({
                         entry: row[1 + i * 2] || '',
                         exit: row[2 + i * 2] || ''
                     }))
