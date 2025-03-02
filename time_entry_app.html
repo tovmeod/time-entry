@@ -426,7 +426,6 @@
 
                     // Stop sync and clear data
                     stopSync();
-                    window.currentAttendanceData = null;
                     clearSyncStatus();
 
                     updateUIState('disconnected');
@@ -918,7 +917,7 @@
                 console.log('Loading data from sheet:', sheetName);
                 const response = await gapi.client.sheets.spreadsheets.values.get({
                     spreadsheetId: spreadsheetId,
-                    range: `${sheetName}!A3:ZZ`  // Get all data
+                    range: `${sheetName}!A4:ZZ`  // Get all data
                 });
                 console.log('Sheet response:', response);
 
@@ -949,7 +948,6 @@
                     if (studentNamesTextarea) {
                         studentNamesTextarea.value = '';
                     }
-                    window.currentAttendanceData = [];
                     await createStudentRows([]);
                     return;
                 }
@@ -999,8 +997,8 @@
                 // Update the textarea with the names
                 studentNamesTextarea.value = studentNames;
                 console.log('Updated textarea with student names');
-
                 // Update the UI
+                updateAttendanceTable();
                 await createStudentRows(values);
                 console.log('UI updated successfully');
                 updateStatus('הנתונים נטענו ונשמרו בהצלחה', false, '#4CAF50');
@@ -1054,56 +1052,18 @@
             try {
                 updateStatus('שומר נתונים...', false, '#ff9800');
 
-                // Get current attendance data or create new data structure
-                const attendanceData = window.currentAttendanceData || [];
+                // Get student names
                 const studentNames = document.getElementById('studentNames').value
                     .split('\n')
                     .filter(name => name.trim());
 
-                // Create new attendance data structure
-                const newAttendanceData = studentNames.map(name => {
-                    // Find existing data for this student
-                    const existingData = attendanceData.find(data => data.name === name);
-                    return {
-                        name: name,
-                        attendance: (existingData ? existingData.attendance : []).map(day => {
-                            let entry = day.entry || '';
-                            let exit = day.exit || '';
-
-                            // Validate and format times
-                            if (entry) {
-                                const [hours, minutes] = entry.split(':').map(Number);
-                                entry = (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59)
-                                    ? hours.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0')
-                                    : '';
-                            }
-                            if (exit) {
-                                const [hours, minutes] = exit.split(':').map(Number);
-                                exit = (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59)
-                                    ? hours.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0')
-                                    : '';
-                            }
-
-                            return { entry, exit };
-                        })
-                    };
-                });
-
-                window.currentAttendanceData = newAttendanceData;
-
-                // Convert to sheet format
-                const values = newAttendanceData.map(student => {
-                    const row = [student.name];
-                    student.attendance.forEach(day => {
-                        row.push(day.entry || '', day.exit || '');
-                    });
-                    return row;
-                });
+                // Convert to sheet format - only names
+                const values = studentNames.map(name => [name]);
 
                 // Save to sheet
                 await gapi.client.sheets.spreadsheets.values.update({
                     spreadsheetId: spreadsheetId,
-                    range: `${sheetName}!A3:ZZ${2 + values.length}`,
+                    range: `${sheetName}!A4:A${3 + values.length}`,
                     valueInputOption: 'RAW',
                     resource: { values }
                 });
@@ -1130,9 +1090,7 @@
         }
 
         async function handleSpreadsheetChange() {
-            // Clear local data and pending saves
-            window.currentAttendanceData = null;
-            localStorage.removeItem('sheetData');
+            // Clear pending saves
             clearPendingSave();
 
             const url = document.getElementById('spreadsheetUrl').value.trim();
@@ -1164,10 +1122,6 @@
             const container = document.getElementById('weeks-container');
             const url = document.getElementById('spreadsheetUrl').value.trim();
             const spreadsheetId = getSpreadsheetIdFromUrl(url);
-
-            // Clear stored data
-            window.currentAttendanceData = null;
-            localStorage.removeItem('sheetData');
 
             try {
                 container.classList.add('loading');
@@ -1405,9 +1359,7 @@
 
         // Update createStudentRows implementation
         createStudentRows = async function(sheetData) {
-            const namesText = document.getElementById('studentNames').value;
-            const names = namesText.split('\n').filter(name => name.trim());
-
+            console.log('Called createStudentRows')
             const tables = document.querySelectorAll('#weeks-container .week-table');
 
             // Clear all tables first
@@ -1527,7 +1479,7 @@
                     const year = document.getElementById('yearSelect').value;
                     const sheetName = `${year}.${String(parseInt(month) + 1).padStart(2, '0')}`;
 
-                    const range = `${sheetName}!${column}${rowIndex + 2}`; // +2 because sheet rows start at 1 and we have a header
+                    const range = `${sheetName}!${column}${rowIndex + 3}`; // +3 sheet rows start at 1 and we have a header
                     await gapi.client.sheets.spreadsheets.values.update({
                         spreadsheetId: spreadsheetId,
                         range: range,
@@ -1588,7 +1540,7 @@
 
                         // Calculate column for this input
                         const column = String.fromCharCode(baseColumn + i);
-                        const range = `${sheetName}!${column}${rowIndex + 2}`; // +2 because sheet rows start at 1 and we have a header
+                        const range = `${sheetName}!${column}${rowIndex + 3}`; // +3 sheet rows start at 1 and we have a header
 
                         await gapi.client.sheets.spreadsheets.values.update({
                             spreadsheetId: spreadsheetId,
@@ -1678,7 +1630,7 @@
                         const year = document.getElementById('yearSelect').value;
                         const sheetName = `${year}.${String(parseInt(month) + 1).padStart(2, '0')}`;
 
-                        const range = `${sheetName}!${column}${rowIndex + 2}`; // +2 because sheet rows start at 1 and we have a header
+                        const range = `${sheetName}!${column}${rowIndex + 3}`; // +3 sheet rows start at 1 and we have a header
                         await gapi.client.sheets.spreadsheets.values.update({
                             spreadsheetId: spreadsheetId,
                             range: range,
