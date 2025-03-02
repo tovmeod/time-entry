@@ -1,0 +1,141 @@
+/* Basic Layout */
+body { 
+    font-family: Arial, sans-serif; 
+    margin: 20px; 
+}
+
+table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    margin-bottom: 20px; 
+}
+
+th, td { 
+    border: 1px solid #ccc; 
+    padding: 8px; 
+    text-align: center; 
+}
+
+/* Time Entry Components */
+.time-cell { 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 5px; 
+}
+
+.time-input { 
+    width: 60px; 
+}
+
+/* Buttons */
+.v-button {
+    padding: 2px 8px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.v-button:hover { 
+    background: #45a049; 
+}
+
+.v-button-all {
+    background: #2196F3;
+}
+
+.v-button-all:hover { 
+    background: #1976D2; 
+}
+
+#disconnectBtn {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#disconnectBtn:hover {
+    background-color: #d32f2f;
+}
+
+#signInBtn, #signOutBtn {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#signInBtn:hover, #signOutBtn:hover {
+    background-color: #1976D2;
+}
+
+/* Loading Spinner */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+    display: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 10px;
+    margin-left: 10px;
+    vertical-align: middle;
+}
+
+/* Layout Components */
+.name-cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+}
+
+.class-selector {
+    margin-bottom: 20px;
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 5px;
+}
+
+.class-selector label {
+    margin-right: 20px;
+}
+
+.week-header {
+    cursor: pointer;
+    background-color: #f0f0f0;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.week-header:hover {
+    background-color: #e0e0e0;
+}
+
+.week-table.collapsed {
+    display: none;
+}
+
+.toggle-icon {
+    transition: transform 0.3s ease;
+}
+
+.collapsed .toggle-icon {
+    transform: rotate(-90deg);
+}

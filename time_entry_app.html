@@ -4,102 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>טופס נוכחות שבועי</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-        .time-cell { display: flex; align-items: center; justify-content: center; gap: 5px; }
-        .time-input { width: 60px; }
-        .v-button {
-            padding: 2px 8px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        .v-button:hover { background: #45a049; }
-        .v-button-all {
-            background: #2196F3;
-        }
-        .v-button-all:hover { background: #1976D2; }
-        #disconnectBtn {
-            background-color: #f44336;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        #disconnectBtn:hover {
-            background-color: #d32f2f;
-        }
-        #signInBtn, #signOutBtn {
-            background-color: #2196F3;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        #signInBtn:hover, #signOutBtn:hover {
-            background-color: #1976D2;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .loading-spinner {
-            display: none;
-            width: 16px;
-            height: 16px;
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 10px;
-            margin-left: 10px;
-            vertical-align: middle;
-        }
-
-        .name-cell {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 10px;
-        }
-        .class-selector {
-            margin-bottom: 20px;
-            padding: 10px;
-            background: #f5f5f5;
-            border-radius: 5px;
-        }
-        .class-selector label {
-            margin-right: 20px;
-        }
-        .week-header {
-            cursor: pointer;
-            background-color: #f0f0f0;
-            padding: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 5px;
-        }
-        .week-header:hover {
-            background-color: #e0e0e0;
-        }
-        .week-table.collapsed {
-            display: none;
-        }
-        .toggle-icon {
-            transition: transform 0.3s ease;
-        }
-        .collapsed .toggle-icon {
-            transform: rotate(-90deg);
-        }
-    </style>
+    <link rel="icon" href="data:image/x-icon;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQEAYAAABPYyMiAAAABmJLR0T///////8JWPfcAAAACXBIWXMAAABIAAAASABGyWs+AAAAF0lEQVRIx2NgGAWjYBSMglEwCkbBSAcACBAAAeaR9cIAAAAASUVORK5CYII=" type="image/x-icon">
+    <link rel="stylesheet" href="styles.css">
     <script>
         // For setup instructions, see setup_instructions.md
         const CLIENT_ID = '243689516336-u5h8m4b12itfassvkj13ad2uuuuo31eq.apps.googleusercontent.com';
@@ -110,7 +16,20 @@
         let gapiInited = false;
         let gisInited = false;
         let initializationInProgress = false;
-        let accessToken = null;
+
+        // Initialize global variables and function declarations
+        var initializeSheet = async function() { 
+            console.warn('initializeSheet not yet implemented');
+            return Promise.reject(new Error('initializeSheet not yet implemented')); 
+        };
+        var createStudentRows = async function() { 
+            console.warn('createStudentRows not yet implemented'); 
+            return Promise.reject(new Error('createStudentRows not yet implemented')); 
+        };
+        var stopSync = function() { 
+            console.warn('stopSync not yet implemented'); 
+        };
+        var accessToken = null;
 
         // Load stored token on startup
         async function loadStoredToken() {
@@ -169,7 +88,7 @@
         }
 
         // Clear all stored data
-        function clearAllData() {
+        async function clearAllData() {
             // Clear all localStorage data except client credentials
             const clientId = localStorage.getItem('client_id');
             localStorage.clear();
@@ -181,7 +100,7 @@
             document.getElementById('studentNames').value = '';
             document.getElementById('sheetLink').innerHTML = '';
             document.getElementById('syncStatus').style.display = 'none';
-            updateAttendanceTable();
+            await updateAttendanceTable();
         }
 
         function gapiLoaded() {
@@ -207,7 +126,6 @@
         }
 
         async function handleTokenResponse(tokenResponse) {
-            console.log('Token response:', tokenResponse);
             try {
                 if (tokenResponse.error !== undefined) {
                     console.error('Token response error:', tokenResponse.error);
@@ -342,11 +260,13 @@
             }
         }
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/date-fns@4.1.0/cdn.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hebcal@2.3.2/client/hebcal.noloc.min.js"></script>
+    <meta name="google-signin-client_id" content="YOUR_CLIENT_ID.apps.googleusercontent.com">
+    <!-- Load Google API scripts first -->
     <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
     <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-    <meta name="google-signin-client_id" content="YOUR_CLIENT_ID.apps.googleusercontent.com">
+    <!-- Load other dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@4.1.0/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hebcal@2.3.2/client/hebcal.noloc.min.js"></script>
 </head>
 <body>
     <h1>טופס נוכחות שבועי</h1>
@@ -372,10 +292,7 @@
                 <div id="urlSpinner" class="loading-spinner"></div>
             </div>
             <div id="sheetLink" style="margin-top: 5px;"></div>
-            <div id="syncStatus" style="margin-top: 5px; font-size: 0.9em; display: none;">
-                <span id="syncStatusText"></span>
-                <span id="syncSpinner" class="loading-spinner"></span>
-            </div>
+            <div id="statusMessage" style="margin-top: 5px; font-size: 0.9em; display: none;"></div>
             <div class="setup-instructions" style="font-size: 0.9em; color: #666; margin-top: 5px;">
                 הוראות הגדרה:
                 <ol>
@@ -488,6 +405,8 @@
         }
 
         async function handleSignoutClick() {
+            // Clear any pending saves
+            clearPendingSave();
             const token = gapi.client.getToken();
             if (token !== null) {
                 try {
@@ -549,10 +468,8 @@
 
         async function setupSheetHeaders(spreadsheetId, sheetId, sheetName, year, month) {
             const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const firstDay = new Date(year, month, 1);
 
             // Create column headers array
-            const headers = [['שם תלמיד']];
             const dayHeaders = [['']];
             const timeHeaders = [['']];
 
@@ -561,10 +478,6 @@
 
             // Keep track of the actual column index (for days that are included)
             let columnIndex = 1;
-
-            // Calculate total columns based on working days
-            const workingDays = calculateWorkingDaysInMonth(year, month);
-            const totalColumns = 1 + (workingDays * 2);
 
             // Add headers for each day
             for (let day = 1; day <= daysInMonth; day++) {
@@ -575,7 +488,7 @@
                 if (dayOfWeekNum > 4) continue;
 
                 const dayOfWeek = getDayOfWeekHebrew(currentDate);
-                const parasha = '';
+                const parasha = ''; // todo: add parasha name to sheet header
 
                 // Add two columns for each day (entry and exit)
                 dayHeaders[0].push(`${day} ${dayOfWeek}`, '');
@@ -722,9 +635,7 @@
             });
         }
 
-        let syncInterval;
-
-        async function validateAndRefreshToken() {
+        async function validateToken() {
             console.log('Validating token...');
             const token = gapi.client.getToken();
             if (!token || !token.access_token) {
@@ -732,521 +643,40 @@
                 return false;
             }
 
-            // Check if token is properly set in gapi client
-            if (accessToken !== token.access_token) {
-                console.log('Token mismatch, updating local state');
-                accessToken = token.access_token;
-            }
-
             try {
-                // Try to validate token with a discovery API request
                 await gapi.client.request({
                     path: 'https://sheets.googleapis.com/$discovery/rest?version=v4',
                 });
                 return true;
             } catch (err) {
-                console.log('Token validation error:', err);
-                if (err.status === 401 || err.status === 403) {
-                    console.log('Token expired or invalid, attempting refresh...');
-                    // Token expired or invalid, try to refresh
-                    try {
-                        await new Promise((resolve, reject) => {
-                            tokenClient.callback = async (response) => {
-                                try {
-                                    if (response.error !== undefined) {
-                                        reject(response);
-                                        return;
-                                    }
-                                    accessToken = response.access_token;
-                                    gapi.client.setToken({
-                                        access_token: accessToken
-                                    });
-                                    storeToken();
-                                    resolve(response);
-                                } catch (err) {
-                                    reject(err);
-                                }
-                            };
-                            tokenClient.requestAccessToken({ prompt: '' });
-                        });
-                        console.log('Token refresh successful');
-                        return true;
-                    } catch (refreshErr) {
-                        console.error('Token refresh failed:', refreshErr);
-                        clearStoredToken();
-                        return false;
-                    }
-                }
-                // For other errors (like network issues), consider the token still valid
-                console.log('Non-auth error, considering token still valid');
-                return true;
+                console.error('Token validation error:', err);
+                clearStoredToken();
+                updateUIState('auth_error', 'נדרשת התחברות מחדש');
+                return false;
             }
         }
 
-        let syncFailCount = 0;
-        let retryDelay = 0;
-        const MAX_SYNC_FAILS = 3;
-        const MAX_RETRY_DELAY = 30000; // 30 seconds
+        // Function to update status message
+        function updateStatus(message, isError = false, color = null) {
+            const statusElement = document.getElementById('statusMessage');
+            if (!statusElement) return;
 
-        // Function to store last sync time
-        function storeLastSyncTime(spreadsheetId) {
-            const now = new Date().toISOString();
-            const syncKey = `lastSyncTime_${spreadsheetId}`;
-            localStorage.setItem(syncKey, now);
-        }
-
-        // Function to get formatted last sync time
-        function getLastSyncTimeDisplay(spreadsheetId) {
-            const syncKey = `lastSyncTime_${spreadsheetId}`;
-            const lastSync = localStorage.getItem(syncKey);
-            if (!lastSync) return '';
-            const lastSyncDate = new Date(lastSync);
-            return lastSyncDate.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-        }
-
-        // Network status handlers
-        function handleOnline() {
-            console.log('Network connection restored');
-            updateSyncStatus('מנסה להתחבר מחדש...');
-            retryDelay = 0; // Reset retry delay when connection is restored
-            const url = document.getElementById('spreadsheetUrl').value.trim();
-            const spreadsheetId = getSpreadsheetIdFromUrl(url);
-            if (spreadsheetId) {
-                performSync(spreadsheetId);
-            }
-        }
-
-        function handleOffline() {
-            console.log('Network connection lost');
-            updateSyncStatus('אין חיבור לאינטרנט', true);
-        }
-
-        // Function to schedule retry
-        function scheduleRetry() {
-            retryDelay = Math.min(retryDelay ? retryDelay * 2 : 5000, MAX_RETRY_DELAY);
-            const remainingAttempts = MAX_SYNC_FAILS - syncFailCount;
-            updateSyncStatus(`מנסה שוב בעוד ${retryDelay/1000} שניות (נותרו ${remainingAttempts} נסיונות)`, true);
-            setTimeout(performSync, retryDelay);
-        }
-
-        // Function to stop sync
-        function stopSync() {
-            if (syncInterval) {
-                clearInterval(syncInterval);
-                syncInterval = null;
-            }
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        }
-
-        // Function to handle sync errors
-        function handleSyncError(err, spreadsheetId = null) {
-            console.error('Sync error:', err);
-            syncFailCount++;
-            console.log(`Sync failed (${syncFailCount}/${MAX_SYNC_FAILS})`);
-
-            // Extract error details
-            const errorBody = err.body ? JSON.parse(err.body) : null;
-            const errorCode = err.status || (errorBody && errorBody.error && errorBody.error.code);
-            const errorText = (errorBody && errorBody.error && errorBody.error.message) || err.message || err.error;
-
-            // If spreadsheetId is not provided, try to get it from the URL
-            if (!spreadsheetId) {
-                const url = document.getElementById('spreadsheetUrl').value.trim();
-                spreadsheetId = getSpreadsheetIdFromUrl(url);
-            }
-
-            if (err.status === 401 || err.status === 403) {
-                updateSyncStatus('שגיאת הרשאות', true);
-                if (syncFailCount >= MAX_SYNC_FAILS) {
-                    stopSync();
-                    updateUIState('error_sync_auth', `נכשלו ${MAX_SYNC_FAILS} נסיונות סנכרון (${errorText})`);
-                } else if (spreadsheetId) {
-                    scheduleRetry(spreadsheetId);
-                }
-            } else if (err.status === 404) {
-                updateSyncStatus('הגיליון לא נמצא', true);
-                stopSync();
-                updateUIState('error_sheet_not_found', errorText);
-            } else if (!navigator.onLine) {
-                updateSyncStatus('אין חיבור לאינטרנט', true);
-                if (spreadsheetId) {
-                    scheduleRetry(spreadsheetId);
-                }
-            } else {
-                updateSyncStatus('שגיאת סנכרון', true);
-                if (syncFailCount >= MAX_SYNC_FAILS) {
-                    stopSync();
-                    updateUIState('error_sync_failed', errorText);
-                } else if (spreadsheetId) {
-                    scheduleRetry(spreadsheetId);
-                }
-            }
-        }
-
-        // Function to perform sync
-        async function performSync(spreadsheetId = null) {
-            if (!await validateBeforeOperation()) {
-                syncFailCount++;
-                console.log(`Sync failed (${syncFailCount}/${MAX_SYNC_FAILS}): Token validation failed`);
-                updateSyncStatus('שגיאת אימות', true);
-                if (syncFailCount >= MAX_SYNC_FAILS) {
-                    stopSync();
-                    updateUIState('error_sync_auth', 'נכשל אימות הרשאות');
-                } else if (spreadsheetId) {
-                    scheduleRetry(spreadsheetId);
-                }
+            if (!message) {
+                statusElement.style.display = 'none';
                 return;
             }
-
-            try {
-                // Get spreadsheet ID if not provided
-                if (!spreadsheetId) {
-                    const url = document.getElementById('spreadsheetUrl').value.trim();
-                    spreadsheetId = getSpreadsheetIdFromUrl(url);
-                    if (!spreadsheetId) return;
-                }
-
-                const month = document.getElementById('monthSelect').value;
-                const year = document.getElementById('yearSelect').value;
-                const sheetName = `${year}.${String(parseInt(month) + 1).padStart(2, '0')}`;
-
-                console.log('Performing sync...');
-                updateSyncStatus('מסנכרן...');
-
-                const response = await gapi.client.sheets.spreadsheets.values.get({
-                    spreadsheetId: spreadsheetId,
-                    range: `${sheetName}!A3:ZZ`,
-                    valueRenderOption: 'UNFORMATTED_VALUE'
-                });
-
-                const values = response.result.values;
-                if (values && values.length > 0) {
-                    console.log('Sync successful, updating data...');
-                    // Update the local data
-                    window.currentAttendanceData = values.map(row => ({
-                        name: row[0],
-                        attendance: Array.from({ length: Math.floor((row.length - 1) / 2) }, (_, i) => ({
-                            entry: row[1 + i * 2] || '',
-                            exit: row[2 + i * 2] || ''
-                        }))
-                    }));
-
-                    // Update the UI if needed
-                    createStudentRows();
-                    syncFailCount = 0; // Reset fail counter on success
-                    retryDelay = 0; // Reset retry delay on success
-                    updateSyncStatus('סונכרן בהצלחה');
-                    storeLastSyncTime(spreadsheetId);
-                } else {
-                    console.log('Sync successful, no data found');
-                    updateSyncStatus('אין נתונים בגיליון');
-                }
-            } catch (err) {
-                handleSyncError(err, spreadsheetId);
-            }
-        }
-
-        async function initializeSync() {
-            // Get current spreadsheet info
-            const url = document.getElementById('spreadsheetUrl').value.trim();
-            const spreadsheetId = getSpreadsheetIdFromUrl(url);
-            if (!spreadsheetId) {
-                console.log('No valid spreadsheet ID found');
-                return;
-            }
-
-            console.log('Initializing sync for spreadsheet:', spreadsheetId);
-
-            // Reset counters
-            syncFailCount = 0;
-            retryDelay = 0;
-
-            // Stop any existing sync
-            stopSync();
-
-            // Add network status monitoring
-            window.addEventListener('online', handleOnline);
-            window.addEventListener('offline', handleOffline);
-
-            try {
-                // Perform initial sync
-                await performSync(spreadsheetId);
-
-                // Start periodic sync if initial sync was successful
-                if (syncFailCount === 0) {
-                    console.log('Starting periodic sync...');
-                    syncInterval = setInterval(() => performSync(spreadsheetId), 30000);
-                }
-            } catch (err) {
-                console.error('Initial sync failed:', err);
-                handleSyncError(err, spreadsheetId);
-            }
-        }
-
-        // Function to perform sync
-        async function performSync(spreadsheetId = null) {
-            if (!await validateBeforeOperation()) {
-                syncFailCount++;
-                console.log(`Sync failed (${syncFailCount}/${MAX_SYNC_FAILS}): Token validation failed`);
-                updateSyncStatus('שגיאת אימות', true);
-                if (syncFailCount >= MAX_SYNC_FAILS) {
-                    stopSync();
-                    updateUIState('error_sync_auth', 'נכשל אימות הרשאות');
-                } else {
-                    scheduleRetry(spreadsheetId);
-                }
-                return;
-            }
-
-            try {
-                // Get spreadsheet ID if not provided
-                if (!spreadsheetId) {
-                    const url = document.getElementById('spreadsheetUrl').value.trim();
-                    spreadsheetId = getSpreadsheetIdFromUrl(url);
-                    if (!spreadsheetId) return;
-                }
-
-                const month = document.getElementById('monthSelect').value;
-                const year = document.getElementById('yearSelect').value;
-                const sheetName = `${year}.${String(parseInt(month) + 1).padStart(2, '0')}`;
-
-                console.log('Performing sync...');
-                updateSyncStatus('מסנכרן...');
-
-                const response = await gapi.client.sheets.spreadsheets.values.get({
-                    spreadsheetId: spreadsheetId,
-                    range: `${sheetName}!A3:ZZ`,
-                    valueRenderOption: 'UNFORMATTED_VALUE'
-                });
-
-                const values = response.result.values;
-                if (values && values.length > 0) {
-                    console.log('Sync successful, updating data...');
-                    // Update the local data
-                    window.currentAttendanceData = values.map(row => ({
-                        name: row[0],
-                        attendance: Array.from({ length: Math.floor((row.length - 1) / 2) }, (_, i) => ({
-                            entry: row[1 + i * 2] || '',
-                            exit: row[2 + i * 2] || ''
-                        }))
-                    }));
-
-                    // Update the UI if needed
-                    createStudentRows();
-                    syncFailCount = 0; // Reset fail counter on success
-                    retryDelay = 0; // Reset retry delay on success
-                    updateSyncStatus('סונכרן בהצלחה');
-                    storeLastSyncTime(spreadsheetId);
-                } else {
-                    console.log('Sync successful, no data found');
-                    updateSyncStatus('אין נתונים בגיליון');
-                }
-            } catch (err) {
-                handleSyncError(err);
-            }
-        }
-
-        // Function to handle sync errors
-        function handleSyncError(err) {
-            console.error('Sync error:', err);
-            syncFailCount++;
-            console.log(`Sync failed (${syncFailCount}/${MAX_SYNC_FAILS})`);
-
-            // Extract error details
-            const errorBody = err.body ? JSON.parse(err.body) : null;
-            const errorCode = err.status || (errorBody && errorBody.error && errorBody.error.code);
-            const errorText = (errorBody && errorBody.error && errorBody.error.message) || err.message || err.error;
-
-            if (err.status === 401 || err.status === 403) {
-                updateSyncStatus('שגיאת הרשאות', true);
-                if (syncFailCount >= MAX_SYNC_FAILS) {
-                    stopSync();
-                    updateUIState('error_sync_auth', `נכשלו ${MAX_SYNC_FAILS} נסיונות סנכרון (${errorText})`);
-                }
-            } else if (err.status === 404) {
-                updateSyncStatus('הגיליון לא נמצא', true);
-                stopSync();
-                updateUIState('error_sheet_not_found', errorText);
-            } else if (!navigator.onLine) {
-                updateSyncStatus('אין חיבור לאינטרנט', true);
-                scheduleRetry();
-            } else {
-                updateSyncStatus('שגיאת סנכרון', true);
-                if (syncFailCount >= MAX_SYNC_FAILS) {
-                    stopSync();
-                    updateUIState('error_sync_failed', errorText);
-                } else {
-                    scheduleRetry();
-                }
-            }
-        }
-
-        // Function to schedule retry
-        function scheduleRetry() {
-            retryDelay = Math.min(retryDelay ? retryDelay * 2 : 5000, MAX_RETRY_DELAY);
-            const remainingAttempts = MAX_SYNC_FAILS - syncFailCount;
-            updateSyncStatus(`מנסה שוב בעוד ${retryDelay/1000} שניות (נותרו ${remainingAttempts} נסיונות)`, true);
-            setTimeout(performSync, retryDelay);
-        }
-
-        // Function to stop sync
-        function stopSync() {
-            if (syncInterval) {
-                clearInterval(syncInterval);
-                syncInterval = null;
-            }
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        }
-
-        // Network status handlers
-        function handleOnline() {
-            console.log('Network connection restored');
-            updateSyncStatus('מנסה להתחבר מחדש...');
-            retryDelay = 0; // Reset retry delay when connection is restored
-            performSync();
-        }
-
-        function handleOffline() {
-            console.log('Network connection lost');
-            updateSyncStatus('אין חיבור לאינטרנט', true);
-        }
-
-        // Function to handle sync errors
-        function handleSyncError(err) {
-            console.error('Sync error:', err);
-            syncFailCount++;
-            console.log(`Sync failed (${syncFailCount}/${MAX_SYNC_FAILS})`);
-
-            // Extract error details
-            const errorBody = err.body ? JSON.parse(err.body) : null;
-            const errorCode = err.status || (errorBody && errorBody.error && errorBody.error.code);
-            const errorText = (errorBody && errorBody.error && errorBody.error.message) || err.message || err.error;
-
-            if (err.status === 401 || err.status === 403) {
-                updateSyncStatus('שגיאת הרשאות', true);
-                if (syncFailCount >= MAX_SYNC_FAILS) {
-                    stopSync();
-                    updateUIState('error_sync_auth', `נכשלו ${MAX_SYNC_FAILS} נסיונות סנכרון (${errorText})`);
-                }
-            } else if (err.status === 404) {
-                updateSyncStatus('הגיליון לא נמצא', true);
-                stopSync();
-                updateUIState('error_sheet_not_found', errorText);
-            } else if (!navigator.onLine) {
-                updateSyncStatus('אין חיבור לאינטרנט', true);
-                scheduleRetry();
-            } else {
-                updateSyncStatus('שגיאת סנכרון', true);
-                if (syncFailCount >= MAX_SYNC_FAILS) {
-                    stopSync();
-                    updateUIState('error_sync_failed', errorText);
-                } else {
-                    scheduleRetry();
-                }
-            }
-        }
-
-        // Function to stop sync
-        function stopSync() {
-            if (syncInterval) {
-                clearInterval(syncInterval);
-                syncInterval = null;
-            }
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        }
-
-        // Network status handlers
-        function handleOnline() {
-            console.log('Network connection restored');
-            updateSyncStatus('מנסה להתחבר מחדש...');
-            retryDelay = 0; // Reset retry delay when connection is restored
-            performSync();
-        }
-
-        function handleOffline() {
-            console.log('Network connection lost');
-            updateSyncStatus('אין חיבור לאינטרנט', true);
-        }
-
-        // Function to clear sync status
-        function clearSyncStatus(spreadsheetId) {
-            const syncKey = `lastSyncTime_${spreadsheetId}`;
-            localStorage.removeItem(syncKey);
-            document.getElementById('syncStatus').style.display = 'none';
-        }
-
-        // Function to update sync status
-        function updateSyncStatus(status, isError = false) {
-            const statusElement = document.getElementById('syncStatus');
-            const statusText = document.getElementById('syncStatusText');
-            const spinner = document.getElementById('syncSpinner');
 
             statusElement.style.display = 'block';
-            let displayText = status;
-            if (status === 'סונכרן בהצלחה') {
-                const timeStr = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-                displayText = `${status} (${timeStr})`;
-                const url = document.getElementById('spreadsheetUrl').value.trim();
-                const spreadsheetId = getSpreadsheetIdFromUrl(url);
-                if (spreadsheetId) {
-                    storeLastSyncTime(spreadsheetId);
-                }
-            } else if (status === 'מסנכרן...') {
-                const url = document.getElementById('spreadsheetUrl').value.trim();
-                const spreadsheetId = getSpreadsheetIdFromUrl(url);
-                if (spreadsheetId) {
-                    const lastSyncTime = getLastSyncTimeDisplay(spreadsheetId);
-                    if (lastSyncTime) {
-                        displayText = `${status} (סנכרון אחרון: ${lastSyncTime})`;
-                    }
-                }
-            }
-            statusText.textContent = displayText;
-            statusText.style.color = isError ? '#f44336' : '#4CAF50';
-            spinner.style.display = status === 'מסנכרן...' ? 'inline-block' : 'none';
-        }
+            statusElement.style.color = color || (isError ? '#f44336' : '#4CAF50');
+            statusElement.textContent = message;
 
-        // Function to schedule retry
-        function scheduleRetry(spreadsheetId = null) {
-            retryDelay = Math.min(retryDelay ? retryDelay * 2 : 5000, MAX_RETRY_DELAY);
-            const remainingAttempts = MAX_SYNC_FAILS - syncFailCount;
-            updateSyncStatus(`מנסה שוב בעוד ${retryDelay/1000} שניות (נותרו ${remainingAttempts} נסיונות)`, true);
-            setTimeout(() => performSync(spreadsheetId), retryDelay);
-        }
-
-        async function startPeriodicSync() {
-            const url = document.getElementById('spreadsheetUrl').value.trim();
-            const spreadsheetId = getSpreadsheetIdFromUrl(url);
-            if (!spreadsheetId) return;
-
-            // Reset counters
-            syncFailCount = 0;
-            retryDelay = 0;
-
-            // Stop any existing sync
-            stopSync();
-
-            // Add network status monitoring
-            window.addEventListener('online', handleOnline);
-            window.addEventListener('offline', handleOffline);
-
-            try {
-                // Perform initial sync
-                await performSync(spreadsheetId);
-
-                // Start periodic sync if initial sync was successful
-                if (syncFailCount === 0) {
-                    console.log('Starting periodic sync...');
-                    syncInterval = setInterval(() => performSync(spreadsheetId), 30000);
-                }
-            } catch (err) {
-                console.error('Initial sync failed:', err);
-                handleSyncError(err);
+            const timeStr = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+            if (!isError && message) {
+                statusElement.textContent += ` (${timeStr})`;
             }
         }
+
+
 
         function updateUIState(state, details = '') {
             const states = {
@@ -1255,105 +685,49 @@
                     authColor: '#666',
                     showSignIn: true,
                     showSignOut: false,
-                    showSync: false
+                    statusText: 'המערכת מנותקת'
                 },
                 'auth_error': {
                     authText: 'נדרשת התחברות מחדש',
                     authColor: '#f44336',
                     showSignIn: true,
                     showSignOut: false,
-                    showSync: false
+                    statusText: 'שגיאת הרשאות - נדרשת התחברות מחדש'
                 },
                 'connected': {
                     authText: 'מחובר',
                     authColor: '#4CAF50',
                     showSignIn: false,
                     showSignOut: true,
-                    showSync: true
+                    statusText: 'מחובר למערכת'
                 },
                 'initializing': {
                     authText: 'מתחבר...',
                     authColor: '#ff9800',
                     showSignIn: false,
                     showSignOut: false,
-                    showSync: false
+                    statusText: 'מתחבר למערכת...'
                 },
                 'waiting': {
                     authText: 'ממתין לאתחול המערכת',
                     authColor: '#ff9800',
                     showSignIn: true,
                     showSignOut: false,
-                    showSync: false
+                    statusText: 'ממתין לאתחול המערכת'
                 },
-                'connecting': {
-                    authText: 'מתחבר לגיליון...',
-                    authColor: '#ff9800',
-                    showSignIn: false,
-                    showSignOut: false,
-                    showSync: false
-                },
-                'error_popup_closed': {
-                    authText: 'החלון נסגר לפני השלמת ההתחברות',
+                'error': {
+                    authText: 'שגיאה',
                     authColor: '#f44336',
                     showSignIn: true,
                     showSignOut: false,
-                    showSync: false
+                    statusText: details || 'אירעה שגיאה'
                 },
-                'error_access_denied': {
-                    authText: 'ההרשאות לא אושרו',
-                    authColor: '#f44336',
-                    showSignIn: true,
-                    showSignOut: false,
-                    showSync: false
-                },
-                'error_invalid_token': {
-                    authText: 'שגיאה באימות הטוקן',
-                    authColor: '#f44336',
-                    showSignIn: true,
-                    showSignOut: false,
-                    showSync: false
-                },
-                'error_invalid_client': {
-                    authText: 'שגיאה בהגדרות OAuth',
-                    authColor: '#f44336',
-                    showSignIn: true,
-                    showSignOut: false,
-                    showSync: false
-                },
-                'error_sheet_not_found': {
+                'sheet_not_found': {
                     authText: 'הגיליון לא נמצא',
                     authColor: '#f44336',
                     showSignIn: true,
                     showSignOut: false,
-                    showSync: false
-                },
-                'error_sheet_permission': {
-                    authText: 'אין הרשאות גישה לגיליון',
-                    authColor: '#f44336',
-                    showSignIn: true,
-                    showSignOut: false,
-                    showSync: false
-                },
-                'error_sheet_connection': {
-                    authText: 'שגיאה בהתחברות לגיליון',
-                    authColor: '#f44336',
-                    showSignIn: true,
-                    showSignOut: false,
-                    showSync: false
-                },
-                'error_sync_failed': {
-                    authText: 'נכשל סנכרון אוטומטי',
-                    authColor: '#f44336',
-                    showSignIn: true,
-                    showSignOut: false,
-                    showSync: false
-                },
-                'error_sync_auth': {
-                    authText: 'נותק מהגיליון - נדרשת התחברות מחדש',
-                    authColor: '#f44336',
-                    showSignIn: true,
-                    showSignOut: false,
-                    showSync: false
+                    statusText: 'הגיליון המבוקש לא נמצא'
                 }
             };
 
@@ -1367,8 +741,13 @@
 
             document.getElementById('signInBtn').style.display = config.showSignIn ? 'inline-block' : 'none';
             document.getElementById('signOutBtn').style.display = config.showSignOut ? 'inline-block' : 'none';
-            if (!config.showSync) {
-                document.getElementById('syncStatus').style.display = 'none';
+
+            // Update status message
+            const statusMessageElement = document.getElementById('statusMessage');
+            if (statusMessageElement) {
+                statusMessageElement.textContent = config.statusText;
+                statusMessageElement.style.display = 'block';
+                statusMessageElement.style.color = config.authColor;
             }
         }
 
@@ -1379,21 +758,12 @@
                 return false;
             }
 
-            try {
-                const isValid = await validateAndRefreshToken();
-                if (!isValid) {
-                    updateUIState('auth_error');
-                    return false;
-                }
-                return true;
-            } catch (err) {
-                console.error('Validation failed:', err);
-                updateUIState('auth_error');
-                return false;
-            }
+            return await validateToken();
         }
 
-        async function initializeSheet() {
+        // Update initializeSheet implementation
+        initializeSheet = async function() {
+            console.log('Called initializeSheet')
             // Validate token before proceeding
             if (!await validateBeforeOperation()) {
                 return;
@@ -1401,15 +771,13 @@
 
             const url = document.getElementById('spreadsheetUrl').value.trim();
             if (!url) {
-                document.getElementById('authStatus').textContent = 'נא להזין כתובת גיליון';
-                document.getElementById('authStatus').style.color = '#f44336';
+                updateStatus('נא להזין כתובת גיליון', true, '#f44336');
                 return;
             }
 
             const spreadsheetId = getSpreadsheetIdFromUrl(url);
             if (!spreadsheetId) {
-                document.getElementById('authStatus').textContent = 'כתובת הגיליון אינה תקינה. יש להעתיק את הכתובת המלאה מהדפדפן';
-                document.getElementById('authStatus').style.color = '#f44336';
+                updateStatus('כתובת הגיליון אינה תקינה. יש להעתיק את הכתובת המלאה מהדפדפן', true, '#f44336');
                 return;
             }
 
@@ -1418,6 +786,9 @@
                 const year = document.getElementById('yearSelect').value;
                 const sheetName = `${year}.${String(parseInt(month) + 1).padStart(2, '0')}`;
 
+                // If no local data, load from sheet
+                updateStatus('טוען נתונים מהגיליון...', false, '#ff9800');
+
                 // Check if the sheet exists
                 const response = await gapi.client.sheets.spreadsheets.get({
                     spreadsheetId: spreadsheetId
@@ -1425,8 +796,6 @@
 
                 const sheets = response.result.sheets;
                 const sheetExists = sheets.some(sheet => sheet.properties.title === sheetName);
-
-                let sheetId;
 
                 if (!sheetExists) {
                     // Create new sheet for the month
@@ -1443,54 +812,27 @@
                         }
                     });
 
-                    // Get the new sheet ID
-                    sheetId = response.result.replies[0].addSheet.properties.sheetId;
-
                     // Set up headers for the new sheet
+                    const sheetId = response.result.replies[0].addSheet.properties.sheetId;
                     await setupSheetHeaders(spreadsheetId, sheetId, sheetName, parseInt(year), parseInt(month));
-                } else {
-                    // Find existing sheet ID
-                    sheetId = sheets.find(sheet => sheet.properties.title === sheetName).properties.sheetId;
                 }
 
                 // Load student data from the sheet
                 await loadStudentsFromSheet(spreadsheetId, sheetName);
                 updateUIState('connected');
+                updateStatus('הנתונים נטענו בהצלחה', false, '#4CAF50');
 
-                // Start periodic sync with initial status
-                await initializeSync();
-
-                // Show initial sync status
-                const lastSyncTime = getLastSyncTimeDisplay();
-                if (lastSyncTime) {
-                    updateSyncStatus(`טוען נתונים (סנכרון אחרון: ${lastSyncTime})`);
-                } else {
-                    updateSyncStatus('טוען נתונים בפעם הראשונה...');
-                }
             } catch (err) {
                 console.error('Error:', err);
-
-                // Extract error details
-                const errorBody = err.body ? JSON.parse(err.body) : null;
-                const errorCode = err.status || (errorBody && errorBody.error && errorBody.error.code);
-                const errorText = (errorBody && errorBody.error && errorBody.error.message) || err.message || err.error;
-
-                // Log error details
-                console.error('Error details:', { errorCode, errorText });
-
-                // Determine error state and details
-                let errorState = 'error_sheet_connection';
-                let errorDetails = errorText;
+                const errorText = err.message || 'שגיאה בטעינת הנתונים';
 
                 if (err.status === 403) {
-                    errorState = 'error_sheet_permission';
+                    updateUIState('error_sheet_permission', errorText);
                 } else if (err.status === 404) {
-                    errorState = 'error_sheet_not_found';
-                } else if (err.error === 'redirect_uri_mismatch' || err.error === 'invalid_client' || err.error === 'unauthorized_client') {
-                    errorState = 'error_invalid_client';
+                    updateUIState('sheet_not_found', errorText);
+                } else {
+                    updateUIState('error', errorText);
                 }
-
-                updateUIState(errorState, errorDetails);
             }
         }
 
@@ -1501,50 +843,116 @@
                     return;
                 }
 
-                // Calculate the range based on working days in month
                 const month = document.getElementById('monthSelect').value;
                 const year = document.getElementById('yearSelect').value;
-                const workingDays = calculateWorkingDaysInMonth(parseInt(year), parseInt(month));
+                const daysInMonth = new Date(parseInt(year), parseInt(month) + 1, 0).getDate();
 
-                // Calculate end column letter (2 columns per working day + 1 for names)
-                const endColumn = getColumnName(workingDays * 2);
-
-                // Get all data from the sheet (excluding headers)
-                const response = await gapi.client.sheets.spreadsheets.values.get({
-                    spreadsheetId: spreadsheetId,
-                    range: `${sheetName}!A3:${endColumn}`
+                // First verify the sheet exists
+                console.log('Checking if sheet exists:', sheetName);
+                const sheetInfo = await gapi.client.sheets.spreadsheets.get({
+                    spreadsheetId: spreadsheetId
                 });
 
-                const values = response.result.values;
-                if (values && values.length > 0) {
-                    // Extract student names from first column
-                    const studentNames = values.map(row => row[0]).filter(name => name).join('\n');
-                    document.getElementById('studentNames').value = studentNames;
+                const sheetExists = sheetInfo.result.sheets.some(sheet => 
+                    sheet.properties.title === sheetName
+                );
 
-                    // Store the attendance data for each student
-                    const attendanceData = values.map(row => {
-                        const studentData = {
-                            name: row[0],
-                            attendance: []
-                        };
-
-                        // Each day has two columns (entry and exit)
-                        for (let i = 1; i < row.length; i += 2) {
-                            studentData.attendance.push({
-                                entry: row[i] || '',
-                                exit: row[i + 1] || ''
-                            });
-                        }
-
-                        return studentData;
-                    });
-
-                    // Store the attendance data in the page for later use
-                    window.currentAttendanceData = attendanceData;
-
-                    // Update the UI with the loaded data
-                    createStudentRows();
+                if (!sheetExists) {
+                    console.error('Sheet not found:', sheetName);
+                    updateStatus(`הגיליון ${sheetName} לא נמצא`, true, '#f44336');
+                    return;
                 }
+
+                // Get all data from the sheet (excluding headers)
+                console.log('Loading data from sheet:', sheetName);
+                const response = await gapi.client.sheets.spreadsheets.values.get({
+                    spreadsheetId: spreadsheetId,
+                    range: `${sheetName}!A3:ZZ`  // Get all data
+                });
+                console.log('Sheet response:', response);
+
+                const values = response.result.values;
+                console.log('Raw sheet response:', response.result);
+                console.log('Loaded sheet values:', values);
+                console.log('Values type:', typeof values);
+                console.log('Is array:', Array.isArray(values));
+
+                if (!values) {
+                    console.error('No values returned from sheet');
+                    updateStatus('לא התקבלו נתונים מהגיליון', true, '#f44336');
+                    return;
+                }
+
+                if (!Array.isArray(values)) {
+                    console.error('Invalid sheet data format:', typeof values);
+                    updateStatus('תבנית נתונים לא תקינה בגיליון', true, '#f44336');
+                    return;
+                }
+
+                if (values.length === 0) {
+                    console.log('Empty values array returned from sheet');
+                    updateStatus('לא נמצאו נתונים בגיליון', true, '#f44336');
+
+                    // Clear existing data since sheet is empty
+                    const studentNamesTextarea = document.getElementById('studentNames');
+                    if (studentNamesTextarea) {
+                        studentNamesTextarea.value = '';
+                    }
+                    window.currentAttendanceData = [];
+                    await createStudentRows();
+                    return;
+                }
+
+                console.log('Number of rows:', values.length);
+                console.log('First few rows:', values.slice(0, 3));
+
+                // Extract student names from the first column
+                console.log('Starting student name extraction...');
+                const extractedNames = values.map((row, index) => {
+                    console.log(`Processing row ${index}:`, row);
+                    if (!Array.isArray(row)) {
+                        console.warn(`Row ${index} is not an array:`, row);
+                        return null;
+                    }
+                    const name = row[0];
+                    console.log(`Extracted name from row ${index}:`, name);
+                    return name;
+                });
+
+                console.log('Names before filtering:', extractedNames);
+                const validNames = extractedNames.filter(name => {
+                    const isValid = name && name.trim();
+                    console.log('Validating name:', name, 'isValid:', isValid);
+                    return isValid;
+                });
+
+                console.log('Valid names:', validNames);
+
+                if (validNames.length === 0) {
+                    console.warn('No valid names found in the first column');
+                    updateStatus('לא נמצאו שמות תלמידים בעמודה הראשונה', true, '#f44336');
+                    return;
+                }
+
+                const studentNames = validNames.join('\n');
+
+                console.log('Extracted student names from sheet:', studentNames);
+                const studentNamesTextarea = document.getElementById('studentNames');
+                if (!studentNamesTextarea) {
+                    console.error('studentNames textarea not found when loading sheet data');
+                    updateStatus('שגיאה בטעינת שמות התלמידים - חסר רכיב נדרש בדף', true, '#f44336');
+                    // Don't proceed with data processing if we can't display the names
+                    return;
+                }
+
+                // Update the textarea with the names
+                studentNamesTextarea.value = studentNames;
+                console.log('Updated textarea with student names');
+
+                // Update the UI
+                await createStudentRows(values);
+                console.log('UI updated successfully');
+                updateStatus('הנתונים נטענו ונשמרו בהצלחה', false, '#4CAF50');
             } catch (err) {
                 console.error('Error loading students:', err);
                 let errorMessage = 'שגיאה בטעינת רשימת התלמידים';
@@ -1584,8 +992,7 @@
             const url = document.getElementById('spreadsheetUrl').value.trim();
             const spreadsheetId = getSpreadsheetIdFromUrl(url);
             if (!spreadsheetId) {
-                document.getElementById('authStatus').textContent = 'כתובת גיליון לא תקינה';
-                document.getElementById('authStatus').style.color = '#f44336';
+                updateStatus('כתובת גיליון לא תקינה', true, '#f44336');
                 return;
             }
 
@@ -1594,204 +1001,144 @@
             const sheetName = `${year}.${String(parseInt(month) + 1).padStart(2, '0')}`;
 
             try {
+                updateStatus('שומר נתונים...', false, '#ff9800');
+
                 // Get current attendance data or create new data structure
                 const attendanceData = window.currentAttendanceData || [];
                 const studentNames = document.getElementById('studentNames').value
                     .split('\n')
                     .filter(name => name.trim());
 
-                // Calculate working days in the month
-                const workingDays = calculateWorkingDaysInMonth(parseInt(year), parseInt(month));
-
-                // Create values array with student names and attendance data
-                const values = studentNames.map(name => {
+                // Create new attendance data structure
+                const newAttendanceData = studentNames.map(name => {
                     // Find existing data for this student
                     const existingData = attendanceData.find(data => data.name === name);
+                    return {
+                        name: name,
+                        attendance: (existingData ? existingData.attendance : []).map(day => {
+                            let entry = day.entry || '';
+                            let exit = day.exit || '';
 
-                    // Initialize row with student name
-                    const row = [name];
+                            // Validate and format times
+                            if (entry) {
+                                const [hours, minutes] = entry.split(':').map(Number);
+                                entry = (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59)
+                                    ? hours.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0')
+                                    : '';
+                            }
+                            if (exit) {
+                                const [hours, minutes] = exit.split(':').map(Number);
+                                exit = (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59)
+                                    ? hours.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0')
+                                    : '';
+                            }
 
-                    // Add attendance data for working days only
-                    let workingDayIndex = 0;
-                    const daysInMonth = new Date(year, parseInt(month) + 1, 0).getDate();
+                            return { entry, exit };
+                        })
+                    };
+                });
 
-                    for (let day = 0; day < daysInMonth; day++) {
-                        const date = new Date(parseInt(year), parseInt(month), day + 1);
-                        const dayOfWeek = date.getDay();
+                window.currentAttendanceData = newAttendanceData;
 
-                        if (dayOfWeek <= 4) { // Sunday (0) through Thursday (4)
-                            const dayData = existingData && existingData.attendance[workingDayIndex] || { entry: '', exit: '' };
-                            row.push(dayData.entry, dayData.exit);
-                            workingDayIndex++;
-                        }
-                    }
-
+                // Convert to sheet format
+                const values = newAttendanceData.map(student => {
+                    const row = [student.name];
+                    student.attendance.forEach(day => {
+                        row.push(day.entry || '', day.exit || '');
+                    });
                     return row;
                 });
 
-                // Calculate the end column letter based on working days
-                const endColumn = getColumnName(workingDays * 2);
-
-                // Update the entire data range
+                // Save to sheet
                 await gapi.client.sheets.spreadsheets.values.update({
                     spreadsheetId: spreadsheetId,
-                    range: `${sheetName}!A3:${endColumn}${2 + values.length}`,
+                    range: `${sheetName}!A3:ZZ${2 + values.length}`,
                     valueInputOption: 'RAW',
-                    resource: {
-                        values: values
-                    }
+                    resource: { values }
                 });
 
-                // Store the updated data
-                window.currentAttendanceData = values.map(row => ({
-                    name: row[0],
-                    attendance: Array.from({ length: calculateWorkingDaysInMonth(parseInt(year), parseInt(month)) }, (_, i) => ({
-                        entry: row[1 + i * 2] || '',
-                        exit: row[2 + i * 2] || ''
-                    }))
-                }));
+                // Update UI
+                await createStudentRows();
+                updateStatus('הנתונים נשמרו בהצלחה', false, '#4CAF50');
+                updateUIState('connected');
 
-                document.getElementById('authStatus').textContent = 'הנתונים נשמרו בהצלחה';
-                document.getElementById('authStatus').style.color = '#4CAF50';
             } catch (err) {
-                console.error('Error saving students:', err);
-                let errorMessage = 'שגיאה בשמירת הנתונים';
-                let errorDetails = '';
-
-                // Extract error details
-                const errorBody = err.body ? JSON.parse(err.body) : null;
-                const errorCode = err.status || err.code || (errorBody && errorBody.error && errorBody.error.code);
-                const errorText = (errorBody && errorBody.error && errorBody.error.message) || err.message;
+                console.error('Error saving data:', err);
+                const errorText = err.message || 'שגיאה בשמירת הנתונים';
 
                 if (err.status === 403) {
-                    errorMessage = 'אין הרשאות כתיבה לגיליון';
+                    updateUIState('error_sheet_permission', errorText);
                 } else if (err.status === 404) {
-                    errorMessage = 'הגיליון או הלשונית לא נמצאו';
-                } else if (err.status === 400) {
-                    errorMessage = 'שגיאה בפורמט הנתונים';
-                } else if (err.code === 429) {
-                    errorMessage = 'נסיונות רבים מדי, נא להמתין מעט';
+                    updateUIState('sheet_not_found', errorText);
+                } else {
+                    updateUIState('error', errorText);
                 }
 
-                // Add error details if available
-                if (errorCode || errorText) {
-                    errorDetails = `\n(${errorCode || 'Error'}: ${errorText || 'Unknown error'})`;
-                }
-
-                const statusElement = document.getElementById('authStatus');
-                statusElement.textContent = errorMessage + errorDetails;
-                statusElement.style.color = '#f44336';
-                statusElement.style.whiteSpace = 'pre-line';
+                updateStatus('שגיאה בשמירת הנתונים', true, '#f44336');
             }
         }
 
-        let spreadsheetChangeTimeout;
-
-        function handleSpreadsheetChange() {
-            // Clear previous timeout and sync
-            if (spreadsheetChangeTimeout) {
-                clearTimeout(spreadsheetChangeTimeout);
-            }
-
-            // Stop sync and clear data
-            stopSync();
+        async function handleSpreadsheetChange() {
+            // Clear local data and pending saves
             window.currentAttendanceData = null;
+            localStorage.removeItem('sheetData');
+            clearPendingSave();
+
             const url = document.getElementById('spreadsheetUrl').value.trim();
-            const spreadsheetId = getSpreadsheetIdFromUrl(url);
-            if (spreadsheetId) {
-                clearSyncStatus(spreadsheetId);
-            }
-
-            const statusElement = document.getElementById('authStatus');
-
             if (!url) {
-                statusElement.textContent = 'נא להזין כתובת גיליון';
-                statusElement.style.color = '#f44336';
+                updateStatus('נא להזין כתובת גיליון', true, '#f44336');
                 clearInvalidSpreadsheetUrl();
                 return;
             }
 
-            // Show loading state immediately
-            statusElement.textContent = 'בודק את כתובת הגיליון...';
-            statusElement.style.color = '#ff9800';
-            document.getElementById('urlSpinner').style.display = 'inline-block';
+            // Show loading state
+            updateStatus('בודק את כתובת הגיליון...', false, '#ff9800');
 
-            // Debounce the validation and loading
-            spreadsheetChangeTimeout = setTimeout(async () => {
-                const spreadsheetId = getSpreadsheetIdFromUrl(url);
-                if (!spreadsheetId) {
-                    statusElement.textContent = 'כתובת הגיליון אינה תקינה. יש להעתיק את הכתובת המלאה מהדפדפן';
-                    statusElement.style.color = '#f44336';
-                    clearInvalidSpreadsheetUrl();
-                    document.getElementById('urlSpinner').style.display = 'none';
-                    return;
-                }
-
-                try {
-                    // Try to validate the spreadsheet ID with a test request
-                    if (gapi.client && gapi.client.getToken()) {
-                        await gapi.client.sheets.spreadsheets.get({
-                            spreadsheetId: spreadsheetId
-                        });
-
-                        // If successful, save and update UI
-                        localStorage.setItem('spreadsheetUrl', url);
-                        updateSheetLink(url, spreadsheetId);
-                        statusElement.textContent = 'הגיליון נמצא ונטען בהצלחה';
-                        statusElement.style.color = '#4CAF50';
-                        document.getElementById('urlSpinner').style.display = 'none';
-                        await initializeSheet();
-                        await initializeSync();
-                    } else {
-                        // Save URL but indicate that auth is needed
-                        localStorage.setItem('spreadsheetUrl', url);
-                        updateSheetLink(url, spreadsheetId);
-                        statusElement.textContent = 'נא להתחבר לחשבון Google';
-                        statusElement.style.color = '#ff9800';
-                        document.getElementById('urlSpinner').style.display = 'none';
-                    }
-                } catch (err) {
-                    console.error('Error validating spreadsheet:', err);
-                    statusElement.textContent = 'לא ניתן לגשת לגיליון. נא לוודא שיש הרשאות מתאימות';
-                    statusElement.style.color = '#f44336';
-                    clearInvalidSpreadsheetUrl();
-                    document.getElementById('urlSpinner').style.display = 'none';
-                }
-            }, 500); // Wait 500ms before validating
+            // Validate and initialize if URL is valid
+            const spreadsheetId = getSpreadsheetIdFromUrl(url);
+            if (spreadsheetId) {
+                localStorage.setItem('spreadsheetUrl', url);
+                updateSheetLink(url, spreadsheetId);
+                await initializeSheet();
+            } else {
+                updateStatus('כתובת הגיליון אינה תקינה. יש להעתיק את הכתובת המלאה מהדפדפן', true, '#f44336');
+                clearInvalidSpreadsheetUrl();
+            }
         }
 
         async function handleMonthYearChange() {
+            // Clear any pending saves
+            clearPendingSave();
+
             const container = document.getElementById('weeks-container');
             const url = document.getElementById('spreadsheetUrl').value.trim();
             const spreadsheetId = getSpreadsheetIdFromUrl(url);
 
-            // Clear existing sync
-            if (syncInterval) {
-                clearInterval(syncInterval);
-                syncInterval = null;
-            }
-
             // Clear stored data
             window.currentAttendanceData = null;
+            localStorage.removeItem('sheetData');
 
             try {
                 container.classList.add('loading');
+                updateStatus('מעדכן נתונים...', false, '#ff9800');
+
                 if (spreadsheetId && gapi.client && gapi.client.getToken()) {
-                    await initializeSheet(); // This will start a new sync
+                    await initializeSheet();
                 } else {
                     updateAttendanceTable();
-                    createStudentRows();
+                    await createStudentRows();
+                    updateStatus('הטבלה עודכנה', false, '#4CAF50');
                 }
             } catch (err) {
                 console.error('Error updating sheet:', err);
-                document.getElementById('authStatus').textContent = 'שגיאה בעדכון הגיליון';
-                document.getElementById('authStatus').style.color = '#f44336';
+                updateStatus('שגיאה בעדכון הנתונים', true, '#f44336');
+                updateUIState('error', 'שגיאה בעדכון הגיליון');
             } finally {
                 container.classList.remove('loading');
             }
         }
 
-        function populateDateSelectors() {
+        async function populateDateSelectors() {
             const monthSelect = document.getElementById('monthSelect');
             const yearSelect = document.getElementById('yearSelect');
             const currentDate = new Date();
@@ -1821,10 +1168,10 @@
                 yearSelect.appendChild(option);
             }
             yearSelect.value = currentYear;
-            updateAttendanceTable(); // Call to set up the table
+            await updateAttendanceTable(); // Call to set up the table
         }
 
-        function updateAttendanceTable() {
+        async function updateAttendanceTable() {
             const month = parseInt(document.getElementById('monthSelect').value);
             const year = parseInt(document.getElementById('yearSelect').value);
             const startOfMonth = new Date(year, month, 1);
@@ -1849,10 +1196,9 @@
                     container.appendChild(weekSection.element);
                 }
             }
-            createStudentRows();
         }
 
-        window.onload = function() {
+        window.onload = async function() {
             // Check OAuth client ID
             if (CLIENT_ID === 'YOUR_CLIENT_ID.apps.googleusercontent.com') {
                 console.warn('Warning: Google OAuth client ID is not set. Please replace YOUR_CLIENT_ID with your actual client ID.');
@@ -1865,13 +1211,10 @@
             document.getElementById('signOutBtn').addEventListener('click', handleSignoutClick);
             document.getElementById('disconnectBtn').addEventListener('click', async () => {
                 if (confirm('האם אתה בטוח שברצונך לנתק את האפליקציה לצמיתות? פעולה זו תמחק את כל הנתונים המקומיים.')) {
-                    if (syncInterval) {
-                        clearInterval(syncInterval);
-                        syncInterval = null;
-                    }
                     await handleSignoutClick();
-                    clearAllData();
+                    await clearAllData();
                     updateUIState('disconnected');
+                    updateStatus('המערכת נותקה והנתונים נמחקו', false, '#4CAF50');
                     document.getElementById('disconnectBtn').style.display = 'none';
                     document.getElementById('disconnectInfo').style.display = 'none';
                 }
@@ -1882,8 +1225,49 @@
                 radio.addEventListener('change', updateClassTime);
             });
 
-            // Set up student names textarea listener
-            document.getElementById('studentNames').addEventListener('input', updateAttendanceTable);
+            // Set up student names textarea listener with debounced save
+            let saveTimeout;
+
+            // Function to clear pending save
+            function clearPendingSave() {
+                if (saveTimeout) {
+                    clearTimeout(saveTimeout);
+                    saveTimeout = null;
+                }
+            }
+
+            // Clear timeout on page unload
+            window.addEventListener('beforeunload', clearPendingSave);
+
+            document.getElementById('studentNames').addEventListener('input', async () => {
+                await updateAttendanceTable();
+
+                // Debounce save operation
+                clearTimeout(saveTimeout);
+
+                // Show "Saving..." status immediately
+                updateStatus('שומר שינויים...', false, '#ff9800');
+
+                saveTimeout = setTimeout(async () => {
+                    try {
+                        const url = document.getElementById('spreadsheetUrl').value.trim();
+                        const spreadsheetId = getSpreadsheetIdFromUrl(url);
+                        if (spreadsheetId && gapi.client && gapi.client.getToken()) {
+                            await saveStudentsToSheet();
+                            console.log('Changes saved to sheet');
+                            updateStatus('השינויים נשמרו בהצלחה', false, '#4CAF50');
+
+                            // Clear success message after 3 seconds
+                            setTimeout(() => {
+                                updateStatus('');
+                            }, 3000);
+                        }
+                    } catch (err) {
+                        console.error('Failed to save changes:', err);
+                        updateStatus('שגיאה בשמירת השינויים', true, '#f44336');
+                    }
+                }, 2000); // Wait 2 seconds after last input before saving
+            });
 
             // Check if Google API is available
             if (typeof gapi === 'undefined') {
@@ -1891,7 +1275,7 @@
                 document.getElementById('authStatus').style.color = '#f44336';
             }
 
-            populateDateSelectors();
+            await populateDateSelectors();
 
             // Restore spreadsheet URL if previously saved
             const savedUrl = localStorage.getItem('spreadsheetUrl');
@@ -1904,13 +1288,6 @@
                 } else {
                     clearInvalidSpreadsheetUrl();
                 }
-            }
-
-            // Initialize from localStorage as fallback
-            const savedNames = localStorage.getItem('studentNames');
-            if (savedNames) {
-                document.getElementById('studentNames').value = savedNames;
-                createStudentRows();
             }
         };
 
@@ -1984,64 +1361,61 @@
             }
         });
 
-        async function createStudentRows() {
+        // Update createStudentRows implementation
+        createStudentRows = async function(sheetData) {
             const namesText = document.getElementById('studentNames').value;
             const names = namesText.split('\n').filter(name => name.trim());
 
-            // Save to localStorage as fallback
-            localStorage.setItem('studentNames', namesText);
-
-            // Save to Google Sheets if authenticated
-            const url = document.getElementById('spreadsheetUrl').value.trim();
-            const spreadsheetId = getSpreadsheetIdFromUrl(url);
-            if (spreadsheetId && gapi.client && gapi.client.getToken()) {
-                try {
-                    await saveStudentsToSheet();
-                } catch (err) {
-                    console.error('Failed to save to Google Sheets:', err);
-                    document.getElementById('authStatus').textContent = 'שגיאה בשמירת נתונים';
-                    document.getElementById('authStatus').style.color = '#f44336';
-                }
-            }
-
             const tables = document.querySelectorAll('#weeks-container .week-table');
+
+            // Clear all tables first
             tables.forEach(table => {
-                // Clear existing rows
-                const tbody = table.tBodies[0]; // Reference the existing tbody
-                tbody.innerHTML = ''; // Clear existing rows
+                const tbody = table.tBodies[0];
+                tbody.innerHTML = '';
+            });
 
-                const headerCells = table.getElementsByTagName('th');
+            // Process each student's data
+            sheetData.forEach(sheetLine => {
+                const name = sheetLine[0];
 
-                names.forEach(name => {
+                // For each student, create a row in each table
+                tables.forEach((table, tableIndex) => {
+                    const tbody = table.tBodies[0];
+                    const headerCells = table.getElementsByTagName('th');
                     const row = tbody.insertRow();
+
+                    // Calculate the data offset for this table
+                    const dataOffset = tableIndex * 10; // Each table has 10 time cells (5 days * 2 times per day)
+
                     for (let i = 0; i < 11; i++) {
                         const cell = row.insertCell(i);
-                        // Check if the header cell is empty before adding inner HTML
-                            if (i === 0) {
+                        if (i === 0) {
+                            cell.innerHTML = `
+                                <div class="name-cell">
+                                    <span>${name.trim()}</span>
+                                    <button class="v-button v-button-all" onclick="fillAllTimes(this)">V</button>
+                                </div>`;
+                        } else {
+                            const headerIndex = Math.floor((i - 1) / 2) + 1;
+                            if (headerCells[headerIndex].innerHTML.trim() !== "") {
+                                let timeValue = sheetLine[dataOffset + i] || ""; // Get time value from the correct position in sheetData
                                 cell.innerHTML = `
-                                    <div class="name-cell">
-                                        <span>${name.trim()}</span>
-                                        <button class="v-button v-button-all" onclick="fillAllTimes(this)">V</button>
+                                    <div class="time-cell">
+                                        <input type="text" class="time-input" placeholder="HH:MM" maxlength="5" oninput="moveToNextInput(event)" value="${timeValue}">
+                                        <button class="v-button" onclick="fillStandardTime(this, ${Math.floor((i + 1) / 2)}, ${i % 2 === 1 ? 'true' : 'false'})">V</button>
                                     </div>`;
-                            } else {
-                                const headerIndex = Math.floor((i - 1) / 2) + 1;
-                                if (headerCells[headerIndex].innerHTML.trim() !== "") {
-                                    cell.innerHTML = `
-                                        <div class="time-cell">
-                                            <input type="text" class="time-input" placeholder="HH:MM" maxlength="5" oninput="moveToNextInput(event)">
-                                            <button class="v-button" onclick="fillStandardTime(this, ${Math.floor((i + 1) / 2)}, ${i % 2 === 1 ? 'true' : 'false'})">V</button>
-                                        </div>`;
-                                }
                             }
                         }
+                    }
                     // Add a cell for total attendance time
-                    const totalCell = row.insertCell(11); // Assuming 11 is the index for the total attendance cell
-                    totalCell.innerHTML = `<span class="total-attendance">0:00</span>`; // Initial total time
+                    const totalCell = row.insertCell(11);
+                    totalCell.innerHTML = `<span class="total-attendance">0:00</span>`;
                 });
             });
             const summarytbody = document.getElementById('summaryTable').tBodies[0];
             summarytbody.innerHTML = '';
-            names.forEach(name => {
+            sheetData.forEach(sheetLine => {
+                const name = sheetLine[0];
                 const row = summarytbody.insertRow();
                 const cell0 = row.insertCell(0);
                 cell0.innerHTML = `<div class="name-cell">
@@ -2052,8 +1426,14 @@
                 const cell2 = row.insertCell(2);
                 cell2.innerHTML = `<span class="total-attendance">0:00</span>`;
             });
-            // Save student names to local storage
-            localStorage.setItem('studentNames', namesText);
+
+            // Calculate attendance for all rows in all week tables
+            tables.forEach(table => {
+                const tbody = table.tBodies[0];
+                Array.from(tbody.rows).forEach(row => {
+                    calcAttendance(row);
+                });
+            });
         }
 
         function updateClassTime() {
@@ -2062,7 +1442,7 @@
             // will check the current selection when needed
         }
 
-        function fillStandardTime(button, dayIndex, isEntrance) {
+        async function fillStandardTime(button, workingDayIndex, isEntrance) {
             const isFirstClass = document.querySelector('input[name="classTime"][value="first"]').checked;
             let time;
 
@@ -2075,6 +1455,55 @@
             const input = button.previousElementSibling;
             input.value = time;
 
+            // Calculate the column for this input
+            const weekTable = input.closest('.week-table');
+            const row = input.closest('tr');
+            const rowInputs = Array.from(row.querySelectorAll('.time-input'));
+            const inputIndexInRow = rowInputs.indexOf(input);
+
+            // Calculate base column (B for first entry of the week)
+            const weekTables = Array.from(document.querySelectorAll('.week-table'));
+            const weekIndex = weekTables.indexOf(weekTable);
+            const inputsPerRow = rowInputs.length;
+            const baseColumn = 66 + (weekIndex * inputsPerRow); // 66 is ASCII for 'B'
+
+            // Calculate final column (alternating between entry and exit times)
+            const column = String.fromCharCode(baseColumn + inputIndexInRow);
+
+            // Get row index (student index) in the current table
+            const rows = Array.from(weekTable.querySelectorAll('tr'));
+            const rowIndex = rows.indexOf(row);
+
+            try {
+                const url = document.getElementById('spreadsheetUrl').value.trim();
+                const spreadsheetId = getSpreadsheetIdFromUrl(url);
+                if (spreadsheetId && gapi.client && gapi.client.getToken()) {
+                    updateStatus('שומר...', false, '#ff9800');
+
+                    // Save just this single value
+                    const month = document.getElementById('monthSelect').value;
+                    const year = document.getElementById('yearSelect').value;
+                    const sheetName = `${year}.${String(parseInt(month) + 1).padStart(2, '0')}`;
+
+                    const range = `${sheetName}!${column}${rowIndex + 2}`; // +2 because sheet rows start at 1 and we have a header
+                    await gapi.client.sheets.spreadsheets.values.update({
+                        spreadsheetId: spreadsheetId,
+                        range: range,
+                        valueInputOption: 'USER_ENTERED',
+                        resource: {
+                            values: [[time]]
+                        }
+                    });
+
+                    console.log(`Saved ${time} to ${range}`);
+                    updateStatus('נשמר', false, '#4CAF50');
+                    setTimeout(() => updateStatus(''), 2000);
+                }
+            } catch (err) {
+                console.error('Failed to save value:', err);
+                updateStatus('שגיאה בשמירה', true, '#f44336');
+            }
+
             // Move to next input after filling
             const inputs = Array.from(document.querySelectorAll('.time-input'));
             const currentIndex = inputs.indexOf(input);
@@ -2084,16 +1513,59 @@
             calcAttendance(button.parentElement.parentElement.parentElement);
         }
 
-        function fillAllTimes(button) {
+        async function fillAllTimes(button) {
             const row = button.closest('tr');
             const isFirstClass = document.querySelector('input[name="classTime"][value="first"]').checked;
             const inTime = isFirstClass ? '19:30' : '21:00';
             const outTime = isFirstClass ? '21:00' : '22:30';
 
-            const inputs = row.querySelectorAll('.time-input');
-            inputs.forEach((input, index) => {
-                input.value = index % 2 === 0 ? inTime : outTime;
-            });
+            const inputs = Array.from(row.querySelectorAll('.time-input'));
+            const weekTable = row.closest('.week-table');
+            const weekTables = Array.from(document.querySelectorAll('.week-table'));
+            const weekIndex = weekTables.indexOf(weekTable);
+            const inputsPerRow = inputs.length;
+            const baseColumn = 66 + (weekIndex * inputsPerRow); // 66 is ASCII for 'B'
+            const rows = Array.from(weekTable.querySelectorAll('tr'));
+            const rowIndex = rows.indexOf(row);
+
+            try {
+                const url = document.getElementById('spreadsheetUrl').value.trim();
+                const spreadsheetId = getSpreadsheetIdFromUrl(url);
+                if (spreadsheetId && gapi.client && gapi.client.getToken()) {
+                    updateStatus('שומר...', false, '#ff9800');
+
+                    const month = document.getElementById('monthSelect').value;
+                    const year = document.getElementById('yearSelect').value;
+                    const sheetName = `${year}.${String(parseInt(month) + 1).padStart(2, '0')}`;
+
+                    // Save each value individually
+                    for (let i = 0; i < inputs.length; i++) {
+                        const input = inputs[i];
+                        const time = i % 2 === 0 ? inTime : outTime;
+                        input.value = time;
+
+                        // Calculate column for this input
+                        const column = String.fromCharCode(baseColumn + i);
+                        const range = `${sheetName}!${column}${rowIndex + 2}`; // +2 because sheet rows start at 1 and we have a header
+
+                        await gapi.client.sheets.spreadsheets.values.update({
+                            spreadsheetId: spreadsheetId,
+                            range: range,
+                            valueInputOption: 'USER_ENTERED',
+                            resource: {
+                                values: [[time]]
+                            }
+                        });
+                        console.log(`Saved ${time} to ${range}`);
+                    }
+
+                    updateStatus('נשמר', false, '#4CAF50');
+                    setTimeout(() => updateStatus(''), 2000);
+                }
+            } catch (err) {
+                console.error('Failed to save values:', err);
+                updateStatus('שגיאה בשמירה', true, '#f44336');
+            }
 
             // Focus the first input of the next row if exists
             const nextRow = row.nextElementSibling;
@@ -2104,25 +1576,84 @@
             calcAttendance(button.parentElement.parentElement.parentElement);
         }
 
-        function moveToNextInput(event) {
+        async function moveToNextInput(event) {
             const input = event.target;
 
             // Only allow numbers
             input.value = input.value.replace(/[^0-9]/g, '');
 
-            // Format the input as HH:MM
+            // Format and validate the input as HH:MM
             if (input.value.length >= 4) {
-                input.value = input.value.slice(0, 2) + ':' + input.value.slice(2, 4);
+                const hours = parseInt(input.value.slice(0, 2));
+                const minutes = parseInt(input.value.slice(2, 4));
+
+                // Validate hours and minutes
+                if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+                    input.value = hours.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0');
+                } else {
+                    input.value = '';
+                    return;
+                }
             }
 
-            // Move to next input when 5 characters are entered (HH:MM)
+            // Move to next input and save when 5 characters are entered (HH:MM)
             if (input.value.length === 5) {
+                // Move to next input
                 const inputs = Array.from(document.querySelectorAll('.time-input'));
                 const currentIndex = inputs.indexOf(input);
                 if (currentIndex < inputs.length - 1) {
                     inputs[currentIndex + 1].focus();
                 }
                 calcAttendance(input.parentElement.parentElement.parentElement);
+
+                // Calculate the column for this input
+                const weekTable = input.closest('.week-table');
+                const row = input.closest('tr');
+                const rowInputs = Array.from(row.querySelectorAll('.time-input'));
+                const inputIndexInRow = rowInputs.indexOf(input);
+
+                // Calculate base column (B for first entry of the week)
+                const weekTables = Array.from(document.querySelectorAll('.week-table'));
+                const weekIndex = weekTables.indexOf(weekTable);
+                const inputsPerRow = rowInputs.length;
+                const baseColumn = 66 + (weekIndex * inputsPerRow); // 66 is ASCII for 'B'
+
+                // Calculate final column (alternating between entry and exit times)
+                const column = String.fromCharCode(baseColumn + inputIndexInRow);
+
+                // Get row index (student index) in the current table
+                const rows = Array.from(weekTable.querySelectorAll('tr'));
+                const rowIndex = rows.indexOf(row);
+
+                try {
+                    const url = document.getElementById('spreadsheetUrl').value.trim();
+                    const spreadsheetId = getSpreadsheetIdFromUrl(url);
+                    if (spreadsheetId && gapi.client && gapi.client.getToken()) {
+                        updateStatus('שומר...', false, '#ff9800');
+
+                        // Save just this single value
+                        const month = document.getElementById('monthSelect').value;
+                        const year = document.getElementById('yearSelect').value;
+                        const sheetName = `${year}.${String(parseInt(month) + 1).padStart(2, '0')}`;
+
+                        const range = `${sheetName}!${column}${rowIndex + 2}`; // +2 because sheet rows start at 1 and we have a header
+                        await gapi.client.sheets.spreadsheets.values.update({
+                            spreadsheetId: spreadsheetId,
+                            range: range,
+                            valueInputOption: 'USER_ENTERED',
+                            resource: {
+                                values: [[input.value]]
+                            }
+                        });
+
+                        console.log(`Saved ${input.value} to ${range}`);
+                        updateStatus('נשמר', false, '#4CAF50');
+                        setTimeout(() => updateStatus(''), 2000);
+                    }
+                } catch (err) {
+                    console.error('Failed to save value:', err);
+                    updateStatus('שגיאה בשמירה', true, '#f44336');
+                }
             }
         }
 
