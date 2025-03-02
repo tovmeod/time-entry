@@ -1394,6 +1394,65 @@
             });
         }
 
+        function numberToExcelColumn(n) {
+            let result = '';
+            n++; // Convert to 1-based index (1 = A, 2 = B, etc.)
+
+            while (n > 0) {
+                n--;
+                result = String.fromCharCode(65 + (n % 26)) + result;
+                n = Math.floor(n / 26);
+            }
+
+            return result;
+        }
+
+        function calculateColumnForInput(input) {
+            const weekTable = input.closest('.week-table');
+            const row = input.closest('tr');
+            const rowInputs = Array.from(row.querySelectorAll('.time-input'));
+            const inputIndexInRow = rowInputs.indexOf(input);
+
+            // Get the student name to find matching rows in previous tables
+            const studentName = row.querySelector('.name-cell span').textContent;
+
+            // Calculate base column (B for first entry of the week)
+            const weekTables = Array.from(document.querySelectorAll('.week-table'));
+            const weekIndex = weekTables.indexOf(weekTable);
+
+            // Calculate total inputs from previous week-tables for this student
+            let totalPreviousInputs = 0;
+            for (let i = 0; i < weekIndex; i++) {
+                const prevWeekTable = weekTables[i];
+                // Find the row for this student in the previous table
+                const rows = Array.from(prevWeekTable.querySelectorAll('tr'));
+                const matchingRow = rows.find(r => {
+                    const nameCell = r.querySelector('.name-cell span');
+                    return nameCell && nameCell.textContent === studentName;
+                });
+
+                if (matchingRow) {
+                    const prevRowInputs = matchingRow.querySelectorAll('.time-input');
+                    console.log(`Week ${i + 1} for ${studentName}: Found ${prevRowInputs.length} inputs`);
+                    totalPreviousInputs += prevRowInputs.length;
+                }
+            }
+
+            console.log(`Total inputs from previous weeks for ${studentName}: ${totalPreviousInputs}`);
+
+            // Calculate column index (1 for B, 2 for C, etc.)
+            const columnIndex = totalPreviousInputs + inputIndexInRow + 1;
+            const column = numberToExcelColumn(columnIndex);
+
+            console.log(`Column index: ${columnIndex}, Column letter: ${column}`);
+            console.log('------------------------');
+
+            return {
+                column,
+                rowIndex: Array.from(weekTable.querySelectorAll('tr')).indexOf(row)
+            };
+        }
+
         function updateClassTime() {
             // This function will be called when the class time radio buttons change
             // It doesn't need to do anything actively, as the fillStandardTime function
@@ -1413,24 +1472,8 @@
             const input = button.previousElementSibling;
             input.value = time;
 
-            // Calculate the column for this input
-            const weekTable = input.closest('.week-table');
-            const row = input.closest('tr');
-            const rowInputs = Array.from(row.querySelectorAll('.time-input'));
-            const inputIndexInRow = rowInputs.indexOf(input);
-
-            // Calculate base column (B for first entry of the week)
-            const weekTables = Array.from(document.querySelectorAll('.week-table'));
-            const weekIndex = weekTables.indexOf(weekTable);
-            const inputsPerRow = rowInputs.length;
-            const baseColumn = 66 + (weekIndex * inputsPerRow); // 66 is ASCII for 'B'
-
-            // Calculate final column (alternating between entry and exit times)
-            const column = String.fromCharCode(baseColumn + inputIndexInRow);
-
-            // Get row index (student index) in the current table
-            const rows = Array.from(weekTable.querySelectorAll('tr'));
-            const rowIndex = rows.indexOf(row);
+            // Calculate the column and row index for this input
+            const { column, rowIndex } = calculateColumnForInput(input);
 
             try {
                 const url = document.getElementById('spreadsheetUrl').value.trim();
@@ -1478,13 +1521,6 @@
             const outTime = isFirstClass ? '21:00' : '22:30';
 
             const inputs = Array.from(row.querySelectorAll('.time-input'));
-            const weekTable = row.closest('.week-table');
-            const weekTables = Array.from(document.querySelectorAll('.week-table'));
-            const weekIndex = weekTables.indexOf(weekTable);
-            const inputsPerRow = inputs.length;
-            const baseColumn = 66 + (weekIndex * inputsPerRow); // 66 is ASCII for 'B'
-            const rows = Array.from(weekTable.querySelectorAll('tr'));
-            const rowIndex = rows.indexOf(row);
 
             try {
                 const url = document.getElementById('spreadsheetUrl').value.trim();
@@ -1502,8 +1538,8 @@
                         const time = i % 2 === 0 ? inTime : outTime;
                         input.value = time;
 
-                        // Calculate column for this input
-                        const column = String.fromCharCode(baseColumn + i);
+                        // Calculate column and row index for this input
+                        const { column, rowIndex } = calculateColumnForInput(input);
                         const range = `${sheetName}!${column}${rowIndex + 3}`; // +3 sheet rows start at 1 and we have a header
 
                         await gapi.client.sheets.spreadsheets.values.update({
@@ -1564,24 +1600,8 @@
                 }
                 calcAttendance(input.parentElement.parentElement.parentElement);
 
-                // Calculate the column for this input
-                const weekTable = input.closest('.week-table');
-                const row = input.closest('tr');
-                const rowInputs = Array.from(row.querySelectorAll('.time-input'));
-                const inputIndexInRow = rowInputs.indexOf(input);
-
-                // Calculate base column (B for first entry of the week)
-                const weekTables = Array.from(document.querySelectorAll('.week-table'));
-                const weekIndex = weekTables.indexOf(weekTable);
-                const inputsPerRow = rowInputs.length;
-                const baseColumn = 66 + (weekIndex * inputsPerRow); // 66 is ASCII for 'B'
-
-                // Calculate final column (alternating between entry and exit times)
-                const column = String.fromCharCode(baseColumn + inputIndexInRow);
-
-                // Get row index (student index) in the current table
-                const rows = Array.from(weekTable.querySelectorAll('tr'));
-                const rowIndex = rows.indexOf(row);
+                // Calculate the column and row index for this input
+                const { column, rowIndex } = calculateColumnForInput(input);
 
                 try {
                     const url = document.getElementById('spreadsheetUrl').value.trim();
