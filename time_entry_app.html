@@ -955,48 +955,13 @@
                 console.log('Number of rows:', values.length);
                 console.log('First few rows:', values.slice(0, 3));
 
-                // Extract student names from the first column
-                console.log('Starting student name extraction...');
-                const extractedNames = values.map((row, index) => {
-                    console.log(`Processing row ${index}:`, row);
-                    if (!Array.isArray(row)) {
-                        console.warn(`Row ${index} is not an array:`, row);
-                        return null;
-                    }
-                    const name = row[0];
-                    console.log(`Extracted name from row ${index}:`, name);
-                    return name;
-                });
-
-                console.log('Names before filtering:', extractedNames);
-                const validNames = extractedNames.filter(name => {
-                    const isValid = name && name.trim();
-                    console.log('Validating name:', name, 'isValid:', isValid);
-                    return isValid;
-                });
-
-                console.log('Valid names:', validNames);
-
-                if (validNames.length === 0) {
-                    console.warn('No valid names found in the first column');
-                    updateStatus('לא נמצאו שמות תלמידים בעמודה הראשונה', true, '#f44336');
-                    return;
-                }
-
-                const studentNames = validNames.join('\n');
-
-                console.log('Extracted student names from sheet:', studentNames);
-                const studentNamesTextarea = document.getElementById('studentNames');
-                if (!studentNamesTextarea) {
-                    console.error('studentNames textarea not found when loading sheet data');
-                    updateStatus('שגיאה בטעינת שמות התלמידים - חסר רכיב נדרש בדף', true, '#f44336');
-                    // Don't proceed with data processing if we can't display the names
-                    return;
-                }
-
+                // Extract and trim student names from the first column
                 // Update the textarea with the names
-                studentNamesTextarea.value = studentNames;
-                console.log('Updated textarea with student names');
+                document.getElementById('studentNames').value = values
+                    .map(row => row[0]?.trim())
+                    .filter(Boolean)
+                    .join('\n');
+
                 // Update the UI
                 updateAttendanceTable();
                 await createStudentRows(values);
@@ -1371,15 +1336,13 @@
             // Process each student's data
             sheetData.forEach(sheetLine => {
                 const name = sheetLine[0];
+                let line_index = 1; // Index to get the time entry data
 
                 // For each student, create a row in each table
-                tables.forEach((table, tableIndex) => {
+                tables.forEach((table) => {
                     const tbody = table.tBodies[0];
                     const headerCells = table.getElementsByTagName('th');
                     const row = tbody.insertRow();
-
-                    // Calculate the data offset for this table
-                    const dataOffset = tableIndex * 10; // Each table has 10 time cells (5 days * 2 times per day)
 
                     for (let i = 0; i < 11; i++) {
                         const cell = row.insertCell(i);
@@ -1392,7 +1355,8 @@
                         } else {
                             const headerIndex = Math.floor((i - 1) / 2) + 1;
                             if (headerCells[headerIndex].innerHTML.trim() !== "") {
-                                let timeValue = sheetLine[dataOffset + i] || ""; // Get time value from the correct position in sheetData
+                                let timeValue = sheetLine[line_index] || ""; // Get time value from the correct position in sheetData
+                                line_index++;
                                 cell.innerHTML = `
                                     <div class="time-cell">
                                         <input type="text" class="time-input" placeholder="HH:MM" maxlength="5" oninput="moveToNextInput(event)" value="${timeValue}">
