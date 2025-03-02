@@ -950,7 +950,7 @@
                         studentNamesTextarea.value = '';
                     }
                     window.currentAttendanceData = [];
-                    await createStudentRows();
+                    await createStudentRows([]);
                     return;
                 }
 
@@ -1109,7 +1109,7 @@
                 });
 
                 // Update UI
-                await createStudentRows();
+                await createStudentRows(values);
                 updateStatus('הנתונים נשמרו בהצלחה', false, '#4CAF50');
                 updateUIState('connected');
 
@@ -1177,7 +1177,7 @@
                     await initializeSheet();
                 } else {
                     updateAttendanceTable();
-                    await createStudentRows();
+                    await createStudentRows([]);
                     updateStatus('הטבלה עודכנה', false, '#4CAF50');
                 }
             } catch (err) {
